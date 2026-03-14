@@ -14,14 +14,14 @@ so future instances have context. **Do not proceed past Phase 0 until all questi
 
 | # | Question | Answer |
 |---|----------|--------|
-| Q1 | **Target property**: Closest PC-SAFT params to cyclopentane, or multi-criteria (vapor pressure, solubility, flammability, GWP)? | _pending_ |
-| Q2 | **GC-PC-SAFT baseline**: Implement group-contribution baseline (Sauer 2014 / Gross-Sadowski 2002) for comparison, or cite literature values only? | _pending_ |
-| Q3 | **Distance metric weighting**: Weight epsilon/k more heavily? Proposed 3:1:1 (epsilon_k : sigma : m). | _pending_ |
-| Q4 | **Applicability domain**: Use leverage/distance in Morgan FP space + flag out-of-distribution molecules? | _pending_ |
-| Q5 | **Uncertainty quantification**: RF tree variance + MC Dropout for NN. Propagate into screening distance as confidence intervals? | _pending_ |
-| Q6 | **Association parameters**: Acknowledge 3-param limitation (non-associating only). Flag OH/NH/COOH candidates? | _pending_ |
-| Q7 | **ML-SAFT dataset (Felton 2024)**: Integrate 988-molecule dataset alongside Esper (~1,842)? IP concerns? | _pending_ |
-| Q8 | **Expanded candidate space**: Broaden beyond 63 HFOs to HCFOs, HFEs, unsaturated hydrocarbons, C3-C6 cyclic fluorinated? Target 500-2000? | _pending_ |
+| Q1 | **Target property**: Closest PC-SAFT params to cyclopentane, or multi-criteria (vapor pressure, solubility, flammability, GWP)? | **Answered**: Parameter proximity to cyclopentane as primary objective. Step 09 validates whether this correlates with vapor pressure proximity. Multi-criteria screening deferred as future work. |
+| Q2 | **GC-PC-SAFT baseline**: Implement group-contribution baseline (Sauer 2014 / Gross-Sadowski 2002) for comparison, or cite literature values only? | **Answered**: Implement a simplified GC calculation (~100 lines) in Step 01 as a running comparison baseline. More compelling than literature citation. |
+| Q3 | **Distance metric weighting**: Weight epsilon/k more heavily? Proposed 3:1:1 (epsilon_k : sigma : m). | **Answered**: Use 3:1:1 (ε/k : σ : m) as configurable default. Step 09 thermodynamic validation will retroactively validate whether these weights are physically justified. |
+| Q4 | **Applicability domain**: Use leverage/distance in Morgan FP space + flag out-of-distribution molecules? | **Answered**: Yes. Isolation Forest in Morgan FP space, flag OOD molecules. Implemented in Step 02 (2B), reported in Step 03 (3B). |
+| Q5 | **Uncertainty quantification**: RF tree variance + MC Dropout for NN. Propagate into screening distance as confidence intervals? | **Answered**: Yes for UQ (RF variance + MC Dropout). Report as error bars and confidence intervals, but do not propagate into the distance metric itself — adds complexity for marginal benefit during prototyping. |
+| Q6 | **Association parameters**: Acknowledge 3-param limitation (non-associating only). Flag OH/NH/COOH candidates? | **Answered**: Flag only. Acknowledge 3-param scope limitation honestly. `is_associating()` utility flags candidates with association sites. No attempt at 5-param prediction. |
+| Q7 | **ML-SAFT dataset (Felton 2024)**: Integrate 988-molecule dataset alongside Esper (~1,842)? IP concerns? | **Answered**: Yes, integrate. Published academic dataset, no IP concerns for this project. Increases training set by ~50%. |
+| Q8 | **Expanded candidate space**: Broaden beyond 63 HFOs to HCFOs, HFEs, unsaturated hydrocarbons, C3-C6 cyclic fluorinated? Target 500-2000? | **Answered**: Yes, broaden to 500-2000 candidates. Include HCFOs, HFEs, unsaturated hydrocarbons, C3-C6 cyclic fluorinated. Implemented in Step 04 (4A). |
 | Q9 | **Thermodynamic validation**: Defer EOS closure to later pass, or include post-screening in Step 04? | **Answered**: Add as Step 09, a lightweight post-hoc validation using teqp (CPU-only, seconds per molecule). Does not block Steps 05-08. |
 
 ---
