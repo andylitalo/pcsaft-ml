@@ -50,7 +50,7 @@ import teqp
 import numpy as np
 
 # Cyclopentane reference parameters (Gross & Sadowski 2001)
-CYCLOPENTANE = {"m": 2.3655, "sigma": 3.7114, "epsilon_k": 265.83}
+CYCLOPENTANE = {"m": 2.3655, "sigma": 3.7114, "epsilon_k": 288.84}
 # Reference conditions for comparison
 T_REF = 298.15  # K (25 °C)
 T_BOIL_REF = 322.4  # K (cyclopentane normal boiling point)

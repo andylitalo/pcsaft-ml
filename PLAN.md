@@ -81,13 +81,38 @@ Orchestrator (Claude Code)
 
 - `main` — approved, working code only
 - `step-NN-<name>` — per-step work branches (e.g., `step-01-morgan-fps`)
-- Merge to `main` only after human approval of the step report
+- Merge to `main` only after approval (human or auto, per tier)
+
+### Merge Strategy
+
+- **Squash merge** to `main`: `git merge --squash step-NN-<name> && git commit`.
+  This produces one clean commit per step on `main`, matching the commit convention.
+- **Merge conflict resolution**: The orchestrator resolves conflicts. If the conflict is
+  non-trivial (more than import ordering or `__init__.py` re-exports), the orchestrator
+  re-launches the step agent on a fresh branch rebased from the updated `main`.
+- **Pre-merge checklist** (orchestrator verifies before every merge):
+  1. `pytest tests/ -v` passes on the step branch
+  2. `ruff check .` passes
+  3. Step report exists and references valid figure paths
+  4. Gate check for downstream steps passes
 
 ### Approval Model
 
-Per-step serial approval. The orchestrator stops after each step report and waits for the
-human lead to approve before merging and proceeding. This is slower but gives tight control
-during prototyping.
+Two-tier approval to balance control with throughput:
+
+**Tier 1 — Human approval required (model steps 01-04, 09):**
+The orchestrator stops after each step report and waits for the human lead to approve
+before merging and proceeding. These steps affect scientific results and need scrutiny.
+
+**Tier 2 — Auto-approve with guardrails (infra steps 05-08):**
+If ALL of the following pass, the orchestrator auto-merges without human review:
+1. `pytest tests/ -v` exits 0
+2. `ruff check .` exits 0
+3. `python scripts/check_gate.py <next_step>` exits 0 for all gated steps
+4. The step report exists at `docs/reports/NN_<name>.md` with all required sections
+
+The human reviews the infra batch at the end. To force human approval for all steps,
+set `REQUIRE_HUMAN_APPROVAL=all` in `state.yaml`.
 
 ---
 
@@ -183,17 +208,30 @@ Constraints:
 Condensed from `docs/steps/step_dependencies.md`. The step guides themselves are the
 authoritative source; this table is for quick orchestrator lookup.
 
-| Step | Depends On | Key Artifacts Produced | Gates | Install |
-|------|-----------|----------------------|-------|---------|
-| 01 | — | `build_features()`, GC-PC-SAFT baseline, weighted distance, ML-SAFT data | 02 | `uv sync --extra dev` |
-| 02 | 01 | `model/nn/`, `nn_pcsaft.pt`, UQ (MC Dropout), AD check | 03, 05 | `uv sync --extra dev --extra nn` |
-| 03 | 01, 02 | `model/registry.py`, unified `evaluate.py`, comparison figures, UQ reporting, AD analysis | 04 | `uv sync --extra dev --extra nn` |
-| 04 | 01, 02, 03 | `model/hf/`, `chemberta/`, 3-way comparison, expanded screening | 05 | `uv sync --extra dev --extra nn --extra hf` |
-| 05 | 01, 02 (minimal) | `serving/` package, `/predict`, `/submit-data`, `/health` | 06, 07, 08 | `uv sync --extra dev --extra nn --extra serve` |
-| 06 | 05 | Dockerfile, `k8s/` manifests, kind deployment | 07 | `uv sync --extra dev --extra nn --extra serve` |
-| 07 | 05, 06 | `pipeline/` package, `pipeline.yaml`, champion/challenger | 08 | `uv sync --extra dev --extra nn --extra serve --extra pipeline` |
-| 08 | 05 (minimal) | `portal/` package, full end-to-end demo | — | `uv sync --extra dev --extra portal` |
-| 09 | 01 or 04 (screening results) | `model/thermodynamic.py`, property-space validation, rank correlation | — | `uv sync --extra dev --extra thermo` |
+| Step | Depends On | Key Artifacts Produced | Gates | Install | Budget |
+|------|-----------|----------------------|-------|---------|--------|
+| 01 | — | `build_features()`, GC-PC-SAFT baseline, weighted distance, ML-SAFT data | 02 | `uv sync --extra dev` | 20 min |
+| 02 | 01 | `model/nn/`, `nn_pcsaft.pt`, UQ (MC Dropout), AD check | 03, 05 | `uv sync --extra dev --extra nn` | 30 min |
+| 03 | 01, 02 | `model/registry.py`, unified `evaluate.py`, comparison figures, UQ reporting, AD analysis | 04 | `uv sync --extra dev --extra nn` | 15 min |
+| 04 | 01, 02, 03 | `model/hf/`, `chemberta/`, 3-way comparison, expanded screening | 05 | `uv sync --extra dev --extra nn --extra hf` | 45 min |
+| 05 | 01, 02 (minimal) | `serving/` package, `/predict`, `/submit-data`, `/health` | 06, 07, 08 | `uv sync --extra dev --extra nn --extra serve` | 15 min |
+| 06 | 05 | Dockerfile, `k8s/` manifests, kind deployment | 07 | `uv sync --extra dev --extra nn --extra serve` | 15 min |
+| 07 | 05, 06 | `pipeline/` package, `pipeline.yaml`, champion/challenger | 08 | `uv sync --extra dev --extra nn --extra serve --extra pipeline` | 15 min |
+| 08 | 05 (minimal) | `portal/` package, full end-to-end demo | — | `uv sync --extra dev --extra portal` | 15 min |
+| 09 | 01 or 04 (screening results) | `model/thermodynamic.py`, property-space validation, rank correlation | — | `uv sync --extra dev --extra thermo` | 15 min |
+
+### Timeout & Retry Policy
+
+- If a step exceeds its budget by 2x, the orchestrator should check for progress (WIP
+  commits, partial artifacts). If stalled, kill and re-launch with simplified parameters
+  (e.g., fewer epochs, smaller model).
+- For ChemBERTa fine-tuning (Step 04), budget assumes GPU. On CPU-only machines, allow up
+  to 90 min or reduce to 1-2 epochs as a proof-of-concept.
+- Network-dependent operations (PubChem patent check, Figshare download, HuggingFace model
+  download) should use `--skip-patents` / cached data when offline. Agents should retry
+  network failures up to 3 times with exponential backoff.
+- If an agent hits its context window mid-step, it must commit WIP to its branch and write
+  a handoff note to `docs/orchestrator_log.md` before exiting.
 
 ### Result Gates (what scripts/check_gate.py verifies)
 

@@ -5,6 +5,8 @@ Usage:
 """
 
 import argparse
+import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import joblib
@@ -109,6 +111,36 @@ def train(
     # Save test set for evaluation
     test_df.to_csv(SAVED_DIR / "test_set.csv", index=False)
     print(f"  Saved test set ({len(test_df)} molecules)")
+
+    # Write MANIFEST.json for artifact tracking
+    artifacts = []
+    for target in TARGETS:
+        artifacts.append({
+            "filename": f"rf_{target}.joblib",
+            "type": "model",
+            "model": "rf",
+            "target": target,
+        })
+    artifacts.append({
+        "filename": "feature_names.joblib",
+        "type": "feature_names",
+        "n_features": len(feature_names),
+    })
+    artifacts.append({
+        "filename": "test_set.csv",
+        "type": "test_set",
+        "n_molecules": len(test_df),
+    })
+    manifest = {
+        "artifacts": artifacts,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "data_source": source,
+        "n_train": len(X_train),
+        "n_test": len(X_test),
+    }
+    manifest_path = SAVED_DIR / "MANIFEST.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    print(f"  Saved MANIFEST.json ({len(artifacts)} artifacts)")
 
     return models
 

@@ -115,7 +115,26 @@ Felton et al. (2024) published 988 molecules specifically curated for ML predict
 **Implementation**:
 - Add a download/load function in `model/data/load.py` for the ML-SAFT dataset
 - Add a `--data {esper,mlsaft,combined}` flag to `model/train.py` (default: `combined`)
-- Ensure deduplication by canonical SMILES when merging datasets
+- **Deduplication strategy**: Use InChI-based deduplication when merging Esper and ML-SAFT
+  datasets. Canonical SMILES can differ between toolkits; InChI is a canonical molecular
+  identifier that handles tautomers consistently. Implementation:
+  ```python
+  from rdkit import Chem
+  from rdkit.Chem.inchi import MolFromInchi, MolToInchi
+
+  def deduplicate_by_inchi(df: pd.DataFrame, smiles_col: str = "smiles") -> pd.DataFrame:
+      """Remove duplicate molecules using InChI as the canonical identifier."""
+      inchis = []
+      for smi in df[smiles_col]:
+          mol = Chem.MolFromSmiles(smi)
+          inchis.append(MolToInchi(mol) if mol else None)
+      df = df.copy()
+      df["_inchi"] = inchis
+      df = df.dropna(subset=["_inchi"]).drop_duplicates(subset=["_inchi"])
+      return df.drop(columns=["_inchi"])
+  ```
+  When duplicates exist with conflicting parameter values (same molecule, different m/sigma/epsilon_k),
+  prefer the Esper value (larger, more systematically fitted dataset).
 - Document the download URL and expected CSV format in a docstring
 
 ### 1B. GC-PC-SAFT Baseline
@@ -145,6 +164,34 @@ PC-SAFT has 5 parameters for associating fluids but this project only predicts t
 - Add `is_associating(smiles: str) -> bool` utility in `screening/filters.py` that checks for OH, NH, COOH, and similar hydrogen-bonding groups using RDKit SMARTS patterns
 - Include `is_associating` as a column in screening output CSV
 - Add a note in the report acknowledging the 3-parameter limitation and that associating candidates should be treated with extra caution
+
+### 1E. Stratified Train/Test Splitting
+
+The current `split_data()` uses a simple random 80/20 split. With the Esper dataset's skewed
+distribution (long-chain alkanes dominate high-m region; associating molecules cluster in
+high-epsilon_k), a random split can produce unrepresentative test sets where entire chemical
+families are absent.
+
+**Implementation**:
+- Update `model/data/load.py` `split_data()` to support stratified splitting:
+  ```python
+  def split_data(df, test_size=0.2, random_state=42, stratify_bins=5):
+      """Split with optional stratification by binned epsilon_k."""
+      if stratify_bins and len(df) > stratify_bins * 5:
+          bins = pd.qcut(df["epsilon_k"], q=stratify_bins, labels=False, duplicates="drop")
+          train_df, test_df = train_test_split(
+              df, test_size=test_size, random_state=random_state, stratify=bins
+          )
+      else:
+          train_df, test_df = train_test_split(
+              df, test_size=test_size, random_state=random_state
+          )
+      return train_df, test_df
+  ```
+- Stratify on epsilon_k (the hardest target) binned into quintiles. This ensures the test
+  set covers the full range of dispersion energies.
+- Keep `random_state=42` for reproducibility across all models.
+- Document the stratification choice in the step report.
 
 ## Evaluation & Success Criteria
 

@@ -203,6 +203,28 @@ torch.save({
 }, "model/saved/nn_pcsaft.pt")
 ```
 
+### 8. Training history (required -- Step 03 depends on this)
+
+Save per-epoch train and validation loss to `model/saved/nn_history.json` so that Step 03's
+evaluation harness can generate learning-curve plots without re-training:
+
+```python
+import json
+
+history = {
+    "epochs": list(range(1, num_epochs + 1)),
+    "train_loss": train_losses,      # list[float], one per epoch
+    "val_loss": val_losses,           # list[float], one per epoch
+    "best_epoch": best_epoch,         # int
+    "final_lr": current_lr,           # float
+}
+with open("model/saved/nn_history.json", "w") as f:
+    json.dump(history, f, indent=2)
+```
+
+The trainer should populate `train_losses` and `val_losses` as running lists during the
+training loop. This file is read by `model/evaluate.py` when generating learning curves.
+
 ## Science Improvements (Tier 1+2)
 
 ### 2A. Uncertainty Quantification

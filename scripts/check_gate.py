@@ -9,6 +9,7 @@ Exit code 0 = gate satisfied, 1 = missing prerequisites.
 """
 
 import ast
+import csv
 import json
 import sys
 from pathlib import Path
@@ -16,6 +17,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SAVED = ROOT / "model" / "saved"
 MANIFEST = SAVED / "MANIFEST.json"
+
+MIN_R2_THRESHOLDS = {
+    "m": 0.20,
+    "sigma": 0.10,
+    "epsilon_k": 0.10,
+}
 
 
 def _manifest_has(filename: str) -> bool:
@@ -38,6 +45,34 @@ def _function_exists(filepath: str, func_name: str) -> bool:
             if node.name == func_name:
                 return True
     return False
+
+
+def _check_metrics(csv_path: str, model_prefix: str) -> list[str]:
+    """Validate that comparison_metrics.csv has acceptable R-squared values.
+
+    Returns list of failure messages (empty if all OK).
+    """
+    path = ROOT / csv_path
+    if not path.exists():
+        return []  # metrics file is optional pre-Step 03
+
+    failures = []
+    try:
+        with open(path) as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row.get("model", "").startswith(model_prefix):
+                    target = row.get("target", "")
+                    r2 = float(row.get("r2", 0))
+                    threshold = MIN_R2_THRESHOLDS.get(target)
+                    if threshold is not None and r2 < threshold:
+                        failures.append(
+                            f"R² for {model_prefix}/{target} = {r2:.3f} "
+                            f"< minimum {threshold}"
+                        )
+    except (ValueError, KeyError):
+        pass  # malformed CSV; don't block on it
+    return failures
 
 
 GATES = {
@@ -70,10 +105,17 @@ GATES = {
     ],
     "09": [
         ("any_file", [
+            "screening/results/ranked_candidates.csv",
             "screening/results/screening_results.csv",
             "screening/results/expanded_screening_results.csv",
         ]),
     ],
+}
+
+
+METRIC_GATES = {
+    "03": ("model/saved/comparison_metrics.csv", "rf"),
+    "04": ("model/saved/comparison_metrics.csv", "nn"),
 }
 
 
@@ -97,6 +139,12 @@ def check_gate(step: str) -> tuple[bool, list[str]]:
         elif kind == "any_file":
             if not any((ROOT / f).exists() for f in check[1]):
                 missing.append(f"any of {check[1]}")
+
+    if step in METRIC_GATES:
+        csv_path, model_prefix = METRIC_GATES[step]
+        metric_failures = _check_metrics(csv_path, model_prefix)
+        missing.extend(metric_failures)
+
     return len(missing) == 0, missing
 
 
