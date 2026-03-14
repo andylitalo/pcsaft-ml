@@ -103,10 +103,20 @@ steps:
       n_tests: 74
     approved: true
   06_docker_kubernetes:
-    status: pending
-    artifacts: []
-    metrics: {}
-    approved: false
+    status: completed
+    artifacts:
+      - Dockerfile (multi-stage build)
+      - .dockerignore
+      - k8s/namespace.yaml
+      - k8s/configmap.yaml (PCSAFT_MODEL_TYPE=rf)
+      - k8s/deployment.yaml (2 replicas, probes, resource limits)
+      - k8s/service.yaml (ClusterIP 80->8000)
+      - k8s/pvc.yaml (1Gi submissions)
+      - tests/test_docker_k8s.py (14 tests)
+      - docs/reports/06_docker_kubernetes.md
+    metrics:
+      n_tests: 88
+    approved: true
   07_kubeflow_retrain_pipeline:
     status: pending
     artifacts: []

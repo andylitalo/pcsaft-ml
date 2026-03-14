@@ -95,3 +95,16 @@ Submit-data endpoint appends to CSV for future retraining. OpenAPI docs at /docs
 **Next action**: Start Step 06 (Docker & Kubernetes).
 
 ---
+
+## 2026-03-14: Step 06 — Docker & Kubernetes (Completed, Auto-Approved)
+
+**What was done**: Created multi-stage Dockerfile (python:3.11-slim, builder+runtime), .dockerignore, and 5
+K8s manifests: namespace, configmap (RF default), deployment (2 replicas, liveness/readiness probes on
+/health, resource limits 250m-1000m CPU / 512Mi-2Gi RAM), service (ClusterIP 80->8000), PVC (1Gi for
+submissions). 14 new tests verify file structure and YAML content. No Docker build (macOS, no Docker).
+
+**Tier 2 auto-approve**: 88/88 tests pass, ruff clean, gate 07 OK, report exists.
+
+**Next action**: Start Step 07 (Kubeflow Retrain Pipeline).
+
+---
