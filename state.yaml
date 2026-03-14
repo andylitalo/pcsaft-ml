@@ -1,19 +1,68 @@
 steps:
   01_morgan_fingerprints:
-    status: pending
-    artifacts: []
-    metrics: {}
-    approved: false
+    status: completed
+    artifacts:
+      - model/data/descriptors.py (build_features, compute_morgan_fingerprints)
+      - model/gc_pcsaft.py
+      - model/data/download_mlsaft.py
+      - model/data/load.py (combined loader, stratified split)
+      - model/saved/feature_config.json
+      - model/saved/rdkit_scaler.joblib
+      - docs/reports/01_morgan_fingerprints.md
+      - figures/01_morgan_fingerprints/
+    metrics:
+      rf_combined_r2_m: 0.62
+      rf_combined_r2_sigma: 0.35
+      rf_combined_r2_epsilon_k: 0.33
+      rf_combined_mae_m: 0.585
+      rf_combined_mae_sigma: 0.189
+      rf_combined_mae_epsilon_k: 26.8
+      n_features: 2218
+      n_tests: 33
+    approved: true
   02_pytorch_multitask_nn:
-    status: pending
-    artifacts: []
-    metrics: {}
-    approved: false
+    status: completed
+    artifacts:
+      - model/nn/architecture.py (PCSAFTNet)
+      - model/nn/trainer.py (train_nn)
+      - model/nn/ad.py (Isolation Forest AD)
+      - model/saved/nn_pcsaft.pt
+      - model/saved/nn_history.json
+      - model/saved/ad_model.joblib
+      - docs/reports/02_pytorch_multitask_nn.md
+      - figures/02_pytorch_nn/
+    metrics:
+      nn_r2_m: 0.42
+      nn_r2_sigma: 0.04
+      nn_r2_epsilon_k: 0.09
+      nn_mae_m: 0.816
+      nn_mae_sigma: 0.244
+      nn_mae_epsilon_k: 33.7
+      best_epoch: 14
+      n_tests: 40
+    approved: true
   03_evaluation_harness:
-    status: pending
-    artifacts: []
-    metrics: {}
-    approved: false
+    status: completed
+    artifacts:
+      - model/registry.py (registry pattern, GC/RF/NN wrappers)
+      - model/evaluate.py (rewritten, multi-model unified evaluation)
+      - tests/test_registry.py (12 tests)
+      - docs/reports/03_evaluation_harness.md
+      - figures/03_evaluation_harness/parity_comparison.png
+      - figures/03_evaluation_harness/residual_distributions.png
+      - figures/03_evaluation_harness/nn_learning_curves.png
+      - figures/03_evaluation_harness/uncertainty_calibration.png
+    metrics:
+      rf_r2_m: 0.62
+      rf_r2_sigma: 0.35
+      rf_r2_epsilon_k: 0.33
+      nn_r2_m: 0.47
+      nn_r2_sigma: 0.11
+      nn_r2_epsilon_k: 0.14
+      gc_r2_m: 0.40
+      ad_frac_ood: 0.08
+      n_tests: 52
+    approved: true
   04_chemberta_finetuning:
     status: pending
     artifacts: []
