@@ -139,10 +139,22 @@ steps:
       promotion_threshold: 0.005
     approved: true
   08_streamlit_portal:
-    status: pending
-    artifacts: []
-    metrics: {}
-    approved: false
+    status: completed
+    artifacts:
+      - portal/app.py (main Streamlit app, 3 tabs)
+      - portal/api_client.py (PCSAFTClient wrapper)
+      - portal/components/predictor.py (prediction UI with molecule rendering)
+      - portal/components/submitter.py (data submission form)
+      - portal/components/dashboard.py (model metrics dashboard)
+      - portal/components/molecule.py (RDKit 2D rendering)
+      - portal/README.md
+      - tests/test_portal.py (20 tests)
+      - docs/reports/08_streamlit_portal.md
+    metrics:
+      n_tests: 119
+      n_portal_tests: 20
+      n_components: 4
+    approved: true
   09_thermodynamic_validation:
     status: pending
     artifacts: []

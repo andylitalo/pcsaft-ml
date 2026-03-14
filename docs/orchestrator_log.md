@@ -127,3 +127,21 @@ InChI-based deduplication handles SMILES variations.
 **Next action**: Start Step 08 (Streamlit Portal).
 
 ---
+
+## 2026-03-14: Step 08 — Streamlit Academic Portal (Completed, Auto-Approved)
+
+**What was done**: Created 3-tab Streamlit portal: prediction page (SMILES input, RDKit 2D molecule
+rendering, m/sigma/epsilon_k display with cyclopentane comparison via st.metric, batch CSV upload),
+data submission form (SMILES + parameter ranges + source DOI, validation before submit), model
+dashboard (health status, R² metrics, fallback data when API unavailable). PCSAFTClient wrapper
+with graceful error handling. 20 new tests (119 total).
+
+**Key features**: Molecule rendering via RDKit Draw.MolToImage. Cyclopentane comparison shows
+% difference for each parameter. Dashboard falls back to hardcoded RF metrics when API is down.
+Batch prediction supports CSV upload for bulk screening.
+
+**Tier 2 auto-approve**: 119/119 tests pass, ruff clean, gate 09 OK, report exists.
+
+**Next action**: Start Step 09 (Thermodynamic Validation). This is Tier 1 — requires human approval.
+
+---
