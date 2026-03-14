@@ -133,32 +133,58 @@ Save as `figures/nn_learning_curves.png`.
 
 Identify the 10 worst-predicted molecules for each model. Check if they share structural features (e.g., "NN struggles with long-chain alcohols"). This becomes talking-point material in an interview.
 
+## Science Improvements (Tier 1+2)
+
+### 3A. Uncertainty Reporting
+
+The evaluation harness should report uncertainty quality alongside point-prediction metrics.
+
+**Implementation**:
+- Add uncertainty columns to `comparison_metrics.csv`: `mean_predicted_std_m`, `mean_predicted_std_sigma`, `mean_predicted_std_epsilon_k`
+- Add a calibration plot: for each model, bin predictions by predicted std, then plot mean predicted std vs mean absolute error in that bin. Well-calibrated uncertainty means these track each other (points near the diagonal).
+- Save calibration plot as `figures/03_evaluation_harness/uncertainty_calibration.png`
+
+### 3B. Applicability Domain Analysis
+
+Show that the AD check from Step 02 is meaningful by comparing performance inside vs outside the domain.
+
+**Implementation**:
+- For each model, partition the test set into in-domain and out-of-domain subsets using the AD model from Step 02
+- Report metrics separately: R² (in-domain), R² (out-of-domain), fraction flagged
+- Add this as a table in the comparison output and report
+- Update parity plots: color-code points by AD status (in-domain vs flagged), add error bars from uncertainty estimates
+- Include GC-PC-SAFT as a registered baseline model in the registry (from Step 01's `model/gc_pcsaft.py`)
+
 ## Evaluation & Success Criteria
 
 ### What success looks like
 
-- Running `python -m model.evaluate --models rf nn` produces:
-  - A printed comparison table
-  - `model/saved/comparison_metrics.csv`
-  - `figures/parity_comparison.png`
-  - `figures/residual_distributions.png`
-  - `figures/nn_learning_curves.png` (if NN history exists)
+- Running `python -m model.evaluate --models gc_pcsaft rf nn` produces:
+  - A printed comparison table (including GC-PC-SAFT baseline)
+  - `model/saved/comparison_metrics.csv` (with uncertainty columns)
+  - `figures/03_evaluation_harness/parity_comparison.png` (with error bars and AD coloring)
+  - `figures/03_evaluation_harness/residual_distributions.png`
+  - `figures/03_evaluation_harness/nn_learning_curves.png` (if NN history exists)
+  - `figures/03_evaluation_harness/uncertainty_calibration.png`
 - The figures are clean, labeled, and suitable for a technical presentation
 - The metrics CSV has a consistent schema that Step 4 (ChemBERTa) can append to
+- AD analysis shows that out-of-domain molecules have worse predictions than in-domain ones
 
 ### Quality bar for figures
 
 - Axis labels include units (e.g., "Predicted ε/k (K)")
 - Parity line is visible and correctly positioned
 - Font size is readable at presentation scale (12pt+)
-- Color coding distinguishes models clearly
+- Color coding distinguishes models clearly (and AD status)
 - Legend is present and unambiguous
+- Error bars are visible but don't obscure the data
 
 ### When to move to Step 4
 
 You're ready for Step 4 when:
 
-1. You have a clear, quantified comparison of RF vs. NN
+1. You have a clear, quantified comparison of GC-PC-SAFT vs RF vs NN
 2. The evaluation harness can accept a new model with minimal code (just register it)
 3. You can articulate the performance difference and hypothesize why (e.g., "the NN captures nonlinear interactions between Morgan FP bits that the RF misses")
-4. Your figures tell the story visually
+4. Your figures tell the story visually, including uncertainty and AD analysis
+5. Uncertainty calibration has been assessed and documented

@@ -9,7 +9,9 @@ Usage:
     python -m model.data.download_esper
 """
 
+import hashlib
 import io
+import logging
 import re
 import sys
 import zipfile
@@ -18,9 +20,13 @@ from pathlib import Path
 import pandas as pd
 import requests
 
+logger = logging.getLogger(__name__)
+
 COLLECTION_URL = "https://api.figshare.com/v2/collections/6821654/articles"
 OUTPUT_DIR = Path(__file__).parent
 OUTPUT_FILE = OUTPUT_DIR / "esper_pcsaft.csv"
+
+EXPECTED_SHA256 = "590cd5eeea8fecd34a13777beed3dfee1e9b9c830ed46417ebd189de1c068beb"
 
 
 def _find_csv_article(articles: list[dict]) -> dict | None:
@@ -64,11 +70,29 @@ def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def verify_checksum(filepath: Path, expected: str) -> bool:
+    """Verify SHA-256 checksum of a file."""
+    sha256 = hashlib.sha256()
+    with open(filepath, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            sha256.update(chunk)
+    actual = sha256.hexdigest()
+    if actual != expected:
+        logger.warning("Checksum mismatch: expected %s, got %s", expected, actual)
+        return False
+    return True
+
+
 def download_esper() -> pd.DataFrame:
     """Download and parse the Esper dataset.
 
     Returns the DataFrame and also saves it to disk as esper_pcsaft.csv.
+    If the file already exists and passes checksum verification, it is loaded directly.
     """
+    if OUTPUT_FILE.exists() and verify_checksum(OUTPUT_FILE, EXPECTED_SHA256):
+        logger.info("Esper dataset already exists and checksum verified: %s", OUTPUT_FILE)
+        return pd.read_csv(OUTPUT_FILE)
+
     print("Fetching Figshare collection metadata...")
     resp = requests.get(COLLECTION_URL, timeout=30)
     resp.raise_for_status()
@@ -120,6 +144,12 @@ def download_esper() -> pd.DataFrame:
     df = df.drop_duplicates(subset=["smiles"])
     df.to_csv(OUTPUT_FILE, index=False)
     print(f"Saved {len(df)} molecules to {OUTPUT_FILE}")
+
+    if not verify_checksum(OUTPUT_FILE, EXPECTED_SHA256):
+        logger.warning(
+            "Downloaded file checksum differs from expected. "
+            "The upstream data may have changed. Proceeding with downloaded version."
+        )
     return df
 
 

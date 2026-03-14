@@ -183,12 +183,34 @@ tokenizer.push_to_hub("your-username/chemberta-pcsaft")
 
 Include a model card with dataset description, training hyperparameters, and evaluation metrics.
 
+## Science Improvements (Tier 1+2)
+
+### 4A. Expanded Candidate Screening
+
+The current screening pipeline generates only ~63 HFO candidates from 13 scaffolds. The literature on next-generation blowing agents also considers HCFOs, fluorinated ethers (HFEs), unsaturated hydrocarbons, methylal/dimethyl ether analogs, and larger cyclic fluorinated compounds. After selecting the best model in this step, re-run screening with a broader chemical space.
+
+**Implementation**:
+- Update `screening/generate.py` to support additional scaffold families beyond HFOs:
+  - HCFOs (hydrochlorofluoroolefins): add Cl-substituted variants
+  - HFEs (hydrofluoroethers): add ether linkages to fluorinated C2-C4 chains
+  - Unsaturated hydrocarbons: C3-C5 alkenes and cycloalkenes
+  - Cyclic fluorinated: C3-C6 rings with F substitution patterns
+- Add a `--scaffold-set {hfo,broad,all}` flag to `screening/run_screening.py`
+- Target: 500-2000 candidates with the `broad` set
+- Re-run the full screening pipeline (SA filter → patent check → PC-SAFT ranking) with the best model from the 3-way comparison
+- Include the expanded screening results in the Step 04 report
+
+### Note on Applicability Domain for ChemBERTa
+
+ChemBERTa uses a tokenizer-based SMILES representation, so its "feature space" is fundamentally different from the Morgan FP space used for the AD check in Step 02. The AD model trained on Morgan FPs still applies to RF and NN but may not be meaningful for ChemBERTa. Discuss this limitation in the report. A ChemBERTa-specific AD could use the CLS embedding space, but this is deferred unless time permits.
+
 ## Evaluation & Success Criteria
 
 ### Metrics to compare
 
 | Model | R² (m) | R² (σ) | R² (ε/k) | MAE (m) | MAE (σ) | MAE (ε/k) |
 |-------|--------|--------|----------|---------|---------|-----------|
+| GC-PC-SAFT | — | — | — | — | — | — |
 | RF (combined) | — | — | — | — | — | — |
 | NN (combined) | — | — | — | — | — | — |
 | ChemBERTa | — | — | — | — | — | — |
@@ -199,22 +221,26 @@ Include a model card with dataset description, training hyperparameters, and eva
 - The model produces reasonable predictions (within physical bounds: m > 0, σ > 0, ε/k > 0)
 - Performance is competitive with or better than the NN, especially on ε/k
 - Training completes in under 30 minutes on a single GPU (or ~2 hours on CPU)
+- Expanded screening produces 500+ candidates ranked by weighted distance
+- Report discusses AD limitations for ChemBERTa vs fingerprint-based models
 
 ### Realistic expectations
 
-With only ~1,800 training samples, ChemBERTa may not dramatically outperform a well-tuned NN with Morgan fingerprints. The value here is demonstrating the workflow and the potential: if more data becomes available (ML-SAFT, experimental submissions), the pretrained model has the capacity to leverage it far more effectively.
+With only ~1,800 training samples (or ~2,800 with ML-SAFT), ChemBERTa may not dramatically outperform a well-tuned NN with Morgan fingerprints. The value here is demonstrating the workflow and the potential: if more data becomes available (experimental submissions), the pretrained model has the capacity to leverage it far more effectively.
 
 ### What to watch for
 
 - **Overfitting**: ChemBERTa has ~85M parameters vs. ~1,800 samples. Monitor train vs. validation loss closely. Use weight decay, dropout, and early stopping aggressively.
 - **Tokenization issues**: SMILES characters like `[`, `]`, `=`, `#` must be handled by the tokenizer. ChemBERTa's tokenizer was trained on SMILES, so this should work, but verify on a few examples.
 - **Scale sensitivity**: The regression head outputs raw values; make sure target normalization is consistent with Steps 2–3.
+- **Expanded screening AD**: Many of the new scaffolds may be out-of-domain. Flag these prominently in the output.
 
 ### When to move to Step 5
 
 You're ready for Step 5 when:
 
-1. You have a three-way comparison table (RF vs. NN vs. ChemBERTa)
+1. You have a four-way comparison table (GC-PC-SAFT vs RF vs NN vs ChemBERTa)
 2. You can explain the trade-offs: "RF is fast and interpretable, NN captures more complex patterns, ChemBERTa leverages pretrained chemical knowledge"
 3. You've chosen a "best model" to deploy (likely the NN or ChemBERTa) based on the metrics
-4. The evaluation harness includes all three models seamlessly
+4. The evaluation harness includes all models seamlessly
+5. Expanded screening results are generated and included in the report

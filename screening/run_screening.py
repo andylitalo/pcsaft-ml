@@ -61,7 +61,7 @@ def run_screening(skip_patents: bool = False, sa_threshold: float = 4.5):
         df = pd.DataFrame(ranked)
         df.to_csv(output_path, index=False)
         print(f"\nResults saved to {output_path}")
-        print(f"\nTop 10 candidates (closest to cyclopentane):")
+        print("\nTop 10 candidates (closest to cyclopentane):")
         print(df.head(10).to_string(index=False))
     else:
         print("\nNo candidates passed all filters.")

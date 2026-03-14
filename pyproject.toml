@@ -18,7 +18,24 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest", "ruff"]
+nn = ["torch>=2.0,<3.0"]
+hf = ["torch>=2.0,<3.0", "transformers>=4.30", "datasets>=2.14"]
+serve = ["fastapi>=0.100", "uvicorn>=0.23", "pydantic-settings>=2.0"]
+pipeline = ["kfp>=2.0"]
+portal = ["streamlit>=1.28"]
 
 [tool.setuptools.packages.find]
-include = ["model*", "screening*"]
+include = ["model*", "screening*", "serving*", "pipeline*", "portal*"]
+
+[tool.ruff]
+line-length = 99
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]

@@ -203,12 +203,35 @@ torch.save({
 }, "model/saved/nn_pcsaft.pt")
 ```
 
+## Science Improvements (Tier 1+2)
+
+### 2A. Uncertainty Quantification
+
+For a screening application, knowing confidence matters as much as the point prediction. Make uncertainty quantification a deliverable in this step, not just a future mention.
+
+**Implementation**:
+- **NN (MC Dropout)**: Add a `predict_with_uncertainty(X, n_forward=30)` method to PCSAFTNet that enables dropout at inference time, runs `n_forward` stochastic forward passes, and returns per-target mean and standard deviation. This is straightforward: call `model.train()` to keep dropout active, then `model.eval()` after.
+- **RF (tree disagreement)**: Add `predict_with_uncertainty()` to the RF wrapper that computes variance across `model.estimators_` predictions. This is free -- scikit-learn already stores individual tree predictions.
+- Save uncertainty estimates alongside point predictions in the model output dict: `{"m": ..., "sigma": ..., "epsilon_k": ..., "m_std": ..., "sigma_std": ..., "epsilon_k_std": ...}`
+
+### 2B. Applicability Domain Check
+
+Standard QSAR practice (Tropsha 2010, OECD guidelines) requires checking whether a test molecule is "inside" the training distribution. Without this, the model may produce confident but meaningless predictions for novel chemistries.
+
+**Implementation**:
+- Train an `IsolationForest` (or compute leverage scores) on the training set feature matrix (Morgan FP + RDKit descriptors from Step 01's `build_features`)
+- Add `in_domain(X) -> np.ndarray[bool]` to the model interface
+- Molecules flagged as out-of-domain get a warning column in predictions
+- Save the AD model alongside the trained NN: `model/saved/ad_model.joblib`
+- The AD check is feature-space based, so it works identically for RF and NN (both consume the same feature matrix)
+
 ## Evaluation & Success Criteria
 
 ### Metrics to compare
 
 | Model | R² (m) | R² (σ) | R² (ε/k) | MAE (m) | MAE (σ) | MAE (ε/k) |
 |-------|--------|--------|----------|---------|---------|-----------|
+| GC-PC-SAFT | — | — | — | — | — | — |
 | RF (RDKit only) | — | — | — | — | — | — |
 | RF (combined) | — | — | — | — | — | — |
 | NN (combined) | — | — | — | — | — | — |
@@ -220,12 +243,15 @@ torch.save({
 - Validation loss tracks training loss without large divergence (no severe overfitting)
 - The model trains in under 5 minutes on CPU for the Esper dataset (~1,800 molecules)
 - All model artifacts save and reload correctly
+- `predict_with_uncertainty()` returns reasonable std values (not all zeros, not all huge)
+- AD check correctly flags molecules structurally distant from training set (test with a few exotic SMILES)
 
 ### What to watch for
 
 - **Overfitting**: If train R² is 0.99 but test R² is 0.70, increase dropout or reduce trunk width
 - **Underfitting**: If both train and test R² are low, try wider layers or more epochs
 - **Loss scale issues**: If one target dominates the loss, switch to normalized targets
+- **UQ calibration**: MC Dropout std should be larger for out-of-domain molecules than in-domain ones
 
 ### When to move to Step 3
 
@@ -235,3 +261,5 @@ You're ready for Step 3 when:
 2. You have side-by-side metrics for RF vs. NN
 3. The model saves and loads correctly for inference
 4. You understand the performance gap (or improvement) and can articulate why
+5. Both RF and NN have `predict_with_uncertainty()` methods
+6. AD model is trained and saved alongside the NN artifacts

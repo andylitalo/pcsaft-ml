@@ -1,0 +1,41 @@
+steps:
+  01_morgan_fingerprints:
+    status: pending
+    artifacts: []
+    metrics: {}
+    approved: false
+  02_pytorch_multitask_nn:
+    status: pending
+    artifacts: []
+    metrics: {}
+    approved: false
+  03_evaluation_harness:
+    status: pending
+    artifacts: []
+    metrics: {}
+    approved: false
+  04_chemberta_finetuning:
+    status: pending
+    artifacts: []
+    metrics: {}
+    approved: false
+  05_fastapi_serving:
+    status: pending
+    artifacts: []
+    metrics: {}
+    approved: false
+  06_docker_kubernetes:
+    status: pending
+    artifacts: []
+    metrics: {}
+    approved: false
+  07_kubeflow_retrain_pipeline:
+    status: pending
+    artifacts: []
+    metrics: {}
+    approved: false
+  08_streamlit_portal:
+    status: pending
+    artifacts: []
+    metrics: {}
+    approved: false

@@ -47,11 +47,19 @@ class PredictionRequest(BaseModel):
         json_schema_extra={"examples": [["C1CCCC1", "CC(=O)O"]]},
     )
 
+class UncertaintyEstimate(BaseModel):
+    m_std: float = Field(description="Std dev of segment number prediction")
+    sigma_std: float = Field(description="Std dev of segment diameter prediction")
+    epsilon_k_std: float = Field(description="Std dev of dispersion energy prediction")
+
 class MoleculePrediction(BaseModel):
     smiles: str
     m: float = Field(description="Segment number")
     sigma: float = Field(description="Segment diameter (Å)")
     epsilon_k: float = Field(description="Dispersion energy (K)")
+    uncertainty: UncertaintyEstimate | None = Field(None, description="Prediction uncertainty from ensemble/MC Dropout")
+    in_domain: bool = Field(True, description="Whether molecule is within the model's applicability domain")
+    is_associating: bool = Field(False, description="Whether molecule has association sites (OH, NH, COOH) -- 3-param PC-SAFT may be insufficient")
     valid: bool = Field(description="Whether the SMILES was parseable")
 
 class PredictionResponse(BaseModel):
