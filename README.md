@@ -1,8 +1,8 @@
 # ML-Driven Blowing Agent Screening via PC-SAFT Parameter Prediction
 
-Screen novel hydrofluoroolefin (HFO) candidates as drop-in replacements for cyclopentane
-in polyurethane foam blowing, using machine learning to predict thermodynamic (PC-SAFT)
-parameters from molecular structure.
+Screen candidate blowing agents, including HFOs and other low-GWP chemistries, as
+drop-in replacements for cyclopentane in polyurethane foam blowing, using machine
+learning to predict thermodynamic (PC-SAFT) parameters from molecular structure.
 
 See [docs/project_overview.md](docs/project_overview.md) for full project description.
 See [PLAN.md](PLAN.md) for orchestrator execution guide.
