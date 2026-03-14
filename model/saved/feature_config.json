@@ -1,0 +1,8 @@
+{
+  "features": "combined",
+  "use_morgan": true,
+  "use_rdkit": true,
+  "morgan_radius": 2,
+  "morgan_bits": 2048,
+  "n_features": 2218
+}

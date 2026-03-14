@@ -1,15 +1,98 @@
 """Load and prepare PC-SAFT training data."""
 
+import logging
 from pathlib import Path
 
 import pandas as pd
+from rdkit import Chem
+from rdkit.Chem.inchi import MolToInchi
 from sklearn.model_selection import train_test_split
+
+logger = logging.getLogger(__name__)
 
 DATA_DIR = Path(__file__).parent
 FALLBACK_CSV = DATA_DIR / "pcsaft_data.csv"
 ESPER_CSV = DATA_DIR / "esper_pcsaft.csv"
+MLSAFT_CSV = DATA_DIR / "mlsaft_pcsaft.csv"
 
 TARGETS = ["m", "sigma", "epsilon_k"]
+
+
+def deduplicate_by_inchi(df: pd.DataFrame, smiles_col: str = "smiles") -> pd.DataFrame:
+    """Remove duplicate molecules using InChI as the canonical identifier.
+
+    Canonical SMILES can differ between toolkits; InChI is a canonical molecular
+    identifier that handles tautomers consistently.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame containing a SMILES column.
+    smiles_col : str
+        Name of the SMILES column.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with duplicates (by InChI) removed.
+    """
+    inchis = []
+    for smi in df[smiles_col]:
+        mol = Chem.MolFromSmiles(smi)
+        inchis.append(MolToInchi(mol) if mol else None)
+    df = df.copy()
+    df["_inchi"] = inchis
+    df = df.dropna(subset=["_inchi"]).drop_duplicates(subset=["_inchi"])
+    return df.drop(columns=["_inchi"])
+
+
+def _load_combined() -> pd.DataFrame:
+    """Load both Esper and ML-SAFT datasets and merge with InChI deduplication.
+
+    When duplicates exist with conflicting parameter values (same molecule,
+    different m/sigma/epsilon_k), Esper values are preferred (larger, more
+    systematically fitted dataset).
+
+    Returns
+    -------
+    pd.DataFrame
+        Combined and deduplicated dataset.
+    """
+    dfs = []
+
+    if ESPER_CSV.exists():
+        esper_df = pd.read_csv(ESPER_CSV)
+        esper_df = esper_df.dropna(subset=["smiles", "m", "sigma", "epsilon_k"])
+        esper_df["_source"] = "esper"
+        dfs.append(esper_df)
+        logger.info("Loaded Esper dataset: %d molecules", len(esper_df))
+
+    if MLSAFT_CSV.exists():
+        mlsaft_df = pd.read_csv(MLSAFT_CSV)
+        mlsaft_df = mlsaft_df.dropna(subset=["smiles", "m", "sigma", "epsilon_k"])
+        mlsaft_df["_source"] = "mlsaft"
+        dfs.append(mlsaft_df)
+        logger.info("Loaded ML-SAFT dataset: %d molecules", len(mlsaft_df))
+
+    if not dfs:
+        raise FileNotFoundError(
+            "No datasets found. Run: python -m model.data.download_esper "
+            "and/or python -m model.data.download_mlsaft"
+        )
+
+    if len(dfs) == 1:
+        df = dfs[0].drop(columns=["_source"], errors="ignore")
+        return df
+
+    # Concat with Esper first so it takes priority in deduplication
+    combined = pd.concat(dfs, ignore_index=True)
+    # Sort so Esper rows come first (preferred in case of duplicate InChIs)
+    combined = combined.sort_values("_source", ascending=True)  # esper < mlsaft
+    combined = deduplicate_by_inchi(combined)
+    combined = combined.drop(columns=["_source"], errors="ignore")
+
+    logger.info("Combined dataset after InChI deduplication: %d molecules", len(combined))
+    return combined
 
 
 def load_data(source: str = "auto") -> pd.DataFrame:
@@ -19,15 +102,25 @@ def load_data(source: str = "auto") -> pd.DataFrame:
     ----------
     source : str
         "esper" to use Esper dataset, "fallback" for curated CSV,
-        "auto" to prefer Esper if available.
+        "combined" to load both Esper + ML-SAFT with deduplication,
+        "auto" to prefer combined if both exist, else Esper, else fallback.
 
     Returns
     -------
     pd.DataFrame
         DataFrame with columns: smiles, m, sigma, epsilon_k (and optionally name).
     """
+    if source == "combined":
+        return _load_combined()
+
     if source == "auto":
-        path = ESPER_CSV if ESPER_CSV.exists() else FALLBACK_CSV
+        # Prefer combined if both datasets exist
+        if ESPER_CSV.exists() and MLSAFT_CSV.exists():
+            return _load_combined()
+        elif ESPER_CSV.exists():
+            path = ESPER_CSV
+        else:
+            path = FALLBACK_CSV
     elif source == "esper":
         if not ESPER_CSV.exists():
             raise FileNotFoundError(
@@ -48,9 +141,15 @@ def load_data(source: str = "auto") -> pd.DataFrame:
 
 
 def split_data(
-    df: pd.DataFrame, test_size: float = 0.2, random_state: int = 42
+    df: pd.DataFrame,
+    test_size: float = 0.2,
+    random_state: int = 42,
+    stratify_bins: int = 5,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Split data into train and test sets.
+    """Split data into train and test sets with optional stratification.
+
+    Stratifies on binned epsilon_k (the hardest target parameter) to ensure
+    the test set covers the full range of dispersion energies.
 
     Parameters
     ----------
@@ -60,13 +159,23 @@ def split_data(
         Fraction for test set.
     random_state : int
         Random seed.
+    stratify_bins : int
+        Number of epsilon_k bins for stratification. Set to 0 to disable.
 
     Returns
     -------
     tuple[pd.DataFrame, pd.DataFrame]
         (train_df, test_df)
     """
-    train_df, test_df = train_test_split(
-        df, test_size=test_size, random_state=random_state
-    )
+    if stratify_bins and len(df) > stratify_bins * 5:
+        bins = pd.qcut(
+            df["epsilon_k"], q=stratify_bins, labels=False, duplicates="drop"
+        )
+        train_df, test_df = train_test_split(
+            df, test_size=test_size, random_state=random_state, stratify=bins
+        )
+    else:
+        train_df, test_df = train_test_split(
+            df, test_size=test_size, random_state=random_state
+        )
     return train_df, test_df

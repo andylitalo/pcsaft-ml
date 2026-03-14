@@ -32,28 +32,28 @@ Phase 1 and Phase 2 items. The orchestrator marks these off as they are complete
 
 ### Phase 1: Repository Organization
 
-- [ ] Pre-scaffold empty packages: `model/nn/`, `model/hf/`, `serving/`, `pipeline/`, `portal/`
-- [ ] Create `scripts/check_gate.py`
-- [ ] Create `Makefile` with per-step targets
-- [ ] Create `state.yaml` for step tracking
-- [ ] Create root `README.md`
-- [ ] Fix `docs/steps/step_dependencies.md` (remove duplicates, remove contradictions)
-- [ ] Decouple `screening/filters.py` from `model.predict` import
-- [ ] Patch step guides 01-05 with science improvements (sections 1A-1D, 2A-2B, 3A-3B, 4A, 5-schema)
-- [ ] Fill all optional dep groups in `pyproject.toml` with pinned versions
-- [ ] Add `[tool.ruff]` config to `pyproject.toml`, run `ruff check --fix .`
-- [ ] Create `tests/conftest.py` with mini-dataset fixture
-- [ ] Create `tests/fixtures/mini_pcsaft.csv`
-- [ ] Slim down `CLAUDE.md` (remove workflow sections, add pointer to PLAN.md)
+- [x] Pre-scaffold empty packages: `model/nn/`, `model/hf/`, `serving/`, `pipeline/`, `portal/`
+- [x] Create `scripts/check_gate.py`
+- [x] Create `Makefile` with per-step targets
+- [x] Create `state.yaml` for step tracking
+- [x] Create root `README.md`
+- [x] Fix `docs/steps/step_dependencies.md` (remove duplicates, remove contradictions)
+- [x] Decouple `screening/filters.py` from `model.predict` import
+- [x] Patch step guides 01-05 with science improvements (sections 1A-1D, 2A-2B, 3A-3B, 4A, 5-schema)
+- [x] Fill all optional dep groups in `pyproject.toml` with pinned versions
+- [x] Add `[tool.ruff]` config to `pyproject.toml`, run `ruff check --fix .`
+- [x] Create `tests/conftest.py` with mini-dataset fixture
+- [x] Create `tests/fixtures/mini_pcsaft.csv`
+- [x] Slim down `CLAUDE.md` (remove workflow sections, add pointer to PLAN.md)
 
 ### Phase 2: Version Control
 
-- [ ] Commit Phase 1 changes to `main`
-- [ ] Generate dependency lockfile via `uv lock`
-- [ ] Add SHA-256 checksum verification to `model/data/download_esper.py`
-- [ ] Add `model/saved/MANIFEST.json` pattern to `scripts/check_gate.py`
-- [ ] Verify: `pytest tests/ -v` passes, `ruff check .` passes
-- [ ] Commit Phase 2 changes
+- [x] Commit Phase 1 changes to `main`
+- [x] Generate dependency lockfile via `uv lock`
+- [x] Add SHA-256 checksum verification to `model/data/download_esper.py`
+- [x] Add `model/saved/MANIFEST.json` pattern to `scripts/check_gate.py`
+- [x] Verify: `pytest tests/ -v` passes, `ruff check .` passes
+- [x] Commit Phase 2 changes
 
 ---
 

@@ -1,4 +1,47 @@
 {
-  "artifacts": [],
-  "note": "This file tracks model artifacts produced by training steps. Updated by scripts/check_gate.py and training scripts."
+  "artifacts": [
+    {
+      "filename": "rf_m.joblib",
+      "type": "model",
+      "model": "rf",
+      "target": "m"
+    },
+    {
+      "filename": "rf_sigma.joblib",
+      "type": "model",
+      "model": "rf",
+      "target": "sigma"
+    },
+    {
+      "filename": "rf_epsilon_k.joblib",
+      "type": "model",
+      "model": "rf",
+      "target": "epsilon_k"
+    },
+    {
+      "filename": "feature_names.joblib",
+      "type": "feature_names",
+      "n_features": 2218
+    },
+    {
+      "filename": "feature_config.json",
+      "type": "feature_config",
+      "features": "combined"
+    },
+    {
+      "filename": "test_set.csv",
+      "type": "test_set",
+      "n_molecules": 361
+    },
+    {
+      "filename": "rdkit_scaler.joblib",
+      "type": "scaler",
+      "scaler": "StandardScaler"
+    }
+  ],
+  "created_at": "2026-03-14T21:45:47.608319+00:00",
+  "data_source": "auto",
+  "features": "combined",
+  "n_train": 1440,
+  "n_test": 361
 }
