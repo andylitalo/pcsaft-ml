@@ -79,3 +79,19 @@ uses RF for ranking.
 Gate 05 check passes. Branch: `step-05-fastapi`.
 
 ---
+
+## 2026-03-14: Step 05 — FastAPI Serving (Completed, Auto-Approved)
+
+**What was done**: Created REST API with /health, /predict, /submit-data endpoints. RF model loaded at
+startup via model registry. Predictions include uncertainty (tree disagreement), AD check (Isolation Forest),
+and association flagging. Pydantic schemas for request/response validation. Config via PCSAFT_* env vars.
+9 new tests (74 total).
+
+**Key features**: Invalid SMILES return valid=false (not 500). Batch predictions up to 100 molecules.
+Submit-data endpoint appends to CSV for future retraining. OpenAPI docs at /docs.
+
+**Tier 2 auto-approve**: 74/74 tests pass, ruff clean, gate 06 OK, report exists.
+
+**Next action**: Start Step 06 (Docker & Kubernetes).
+
+---

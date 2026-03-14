@@ -90,10 +90,18 @@ steps:
       n_tests: 65
     approved: true
   05_fastapi_serving:
-    status: pending
-    artifacts: []
-    metrics: {}
-    approved: false
+    status: completed
+    artifacts:
+      - serving/app.py (FastAPI app with /health, /predict, /submit-data)
+      - serving/schemas.py (Pydantic request/response models)
+      - serving/model_loader.py (model singleton with UQ, AD, association)
+      - serving/config.py (pydantic-settings, PCSAFT_* env vars)
+      - tests/test_serving.py (9 tests)
+      - docs/reports/05_fastapi_serving.md
+    metrics:
+      n_endpoints: 3
+      n_tests: 74
+    approved: true
   06_docker_kubernetes:
     status: pending
     artifacts: []
