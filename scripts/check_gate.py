@@ -68,6 +68,12 @@ GATES = {
         ("file", "serving/app.py"),
         ("file", "pipeline/pipeline.py"),
     ],
+    "09": [
+        ("any_file", [
+            "screening/results/screening_results.csv",
+            "screening/results/expanded_screening_results.csv",
+        ]),
+    ],
 }
 
 

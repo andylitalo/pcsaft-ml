@@ -22,7 +22,7 @@ so future instances have context. **Do not proceed past Phase 0 until all questi
 | Q6 | **Association parameters**: Acknowledge 3-param limitation (non-associating only). Flag OH/NH/COOH candidates? | _pending_ |
 | Q7 | **ML-SAFT dataset (Felton 2024)**: Integrate 988-molecule dataset alongside Esper (~1,842)? IP concerns? | _pending_ |
 | Q8 | **Expanded candidate space**: Broaden beyond 63 HFOs to HCFOs, HFEs, unsaturated hydrocarbons, C3-C6 cyclic fluorinated? Target 500-2000? | _pending_ |
-| Q9 | **Thermodynamic validation**: Defer EOS closure to later pass, or include post-screening in Step 04? | _pending_ |
+| Q9 | **Thermodynamic validation**: Defer EOS closure to later pass, or include post-screening in Step 04? | **Answered**: Add as Step 09, a lightweight post-hoc validation using teqp (CPU-only, seconds per molecule). Does not block Steps 05-08. |
 
 ---
 
@@ -193,6 +193,7 @@ authoritative source; this table is for quick orchestrator lookup.
 | 06 | 05 | Dockerfile, `k8s/` manifests, kind deployment | 07 | `uv sync --extra dev --extra nn --extra serve` |
 | 07 | 05, 06 | `pipeline/` package, `pipeline.yaml`, champion/challenger | 08 | `uv sync --extra dev --extra nn --extra serve --extra pipeline` |
 | 08 | 05 (minimal) | `portal/` package, full end-to-end demo | — | `uv sync --extra dev --extra portal` |
+| 09 | 01 or 04 (screening results) | `model/thermodynamic.py`, property-space validation, rank correlation | — | `uv sync --extra dev --extra thermo` |
 
 ### Result Gates (what scripts/check_gate.py verifies)
 
@@ -205,6 +206,7 @@ authoritative source; this table is for quick orchestrator lookup.
 | 06 | `serving/app.py` exists and API starts |
 | 07 | `k8s/` manifests exist |
 | 08 | API is reachable; pipeline compiles |
+| 09 | Screening results CSV exists |
 
 ---
 

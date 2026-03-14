@@ -1,6 +1,6 @@
 # Step Dependencies and Parallelization Guide
 
-This document describes how the eight ML pipeline steps depend on each other and what can be parallelized. It is intended for agent orchestrators that need to automate the full pipeline in one run.
+This document describes how the nine ML pipeline steps depend on each other and what can be parallelized. It is intended for agent orchestrators that need to automate the full pipeline in one run.
 
 ---
 
@@ -30,8 +30,12 @@ flowchart TD
         S7 --> S8
     end
     
+    S9[09: Thermodynamic Validation]
+    
     S4 -.->|"best model artifact"| S5
     S2 -.->|"minimal: NN or RF"| S5
+    S1 -.->|"screening results"| S9
+    S4 -.->|"expanded screening"| S9
 ```
 
 ---
@@ -114,6 +118,17 @@ steps:
     produces:
       - portal/ package
       - Full end-to-end demo
+
+  09_thermodynamic_validation:
+    depends_on: [04]
+    minimal_depends_on: [01]
+    optional_deps: [dev, thermo]
+    produces:
+      - model/thermodynamic.py
+      - model/saved/thermo_validation.csv
+      - figures/09_thermodynamic_validation/
+      - Parameter-vs-property rank correlation
+    gates: []
 ```
 
 ---
@@ -142,6 +157,7 @@ This project uses **uv** for dependency management and virtual environments. Eac
 | 05, 06 | `uv sync --extra dev --extra nn --extra serve` | Adds FastAPI, uvicorn |
 | 07 | `uv sync --extra dev --extra nn --extra serve --extra pipeline` | Adds kfp |
 | 08 | `uv sync --extra dev --extra portal` | Adds streamlit |
+| 09 | `uv sync --extra dev --extra thermo` | Adds teqp (CPU-only EOS solver) |
 
 Alternatively, install everything: `uv sync --all-extras`.
 
@@ -160,3 +176,4 @@ Run `python scripts/check_gate.py <step>` to verify programmatically.
 | 06 | `serving/app.py` and `serving/model_loader.py` exist |
 | 07 | `k8s/` manifests exist |
 | 08 | `serving/app.py` and `pipeline/pipeline.py` exist |
+| 09 | Screening results CSV exists in `screening/results/` |

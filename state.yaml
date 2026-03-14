@@ -39,3 +39,8 @@ steps:
     artifacts: []
     metrics: {}
     approved: false
+  09_thermodynamic_validation:
+    status: pending
+    artifacts: []
+    metrics: {}
+    approved: false

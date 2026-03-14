@@ -21,6 +21,7 @@ This file provides project context and conventions only.
 | 06 | Docker & Kubernetes | Dockerfile, `k8s/` manifests, kind deployment | — (infra only) |
 | 07 | Kubeflow Retrain Pipeline | `pipeline/` package, automated retrain DAG | kfp |
 | 08 | Streamlit Portal | `portal/` package, researcher-facing web UI | streamlit |
+| 09 | Thermodynamic Validation | `model/thermodynamic.py`, property-space ranking validation | teqp |
 
 ## Directory Conventions
 

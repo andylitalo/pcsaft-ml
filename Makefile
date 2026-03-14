@@ -1,5 +1,5 @@
 .PHONY: setup download-data lint test train-rf evaluate screen check-gate \
-       step-01 step-02 step-03 step-04 step-05 step-06 step-07 step-08
+       step-01 step-02 step-03 step-04 step-05 step-06 step-07 step-08 step-09
 
 # ── Setup ──────────────────────────────────────────────────────────────────────
 
@@ -20,6 +20,9 @@ setup-pipeline:
 
 setup-portal:
 	uv sync --extra dev --extra portal
+
+setup-thermo:
+	uv sync --extra dev --extra thermo
 
 setup-all:
 	uv sync --all-extras
@@ -92,3 +95,7 @@ step-07: setup-pipeline
 step-08: setup-portal
 	@echo "Step 08: Streamlit Portal — see docs/steps/08_streamlit_portal.md"
 	uv run python scripts/check_gate.py 08
+
+step-09: setup-thermo
+	@echo "Step 09: Thermodynamic Validation — see docs/steps/09_thermodynamic_validation.md"
+	uv run python scripts/check_gate.py 09
