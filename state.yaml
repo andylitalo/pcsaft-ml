@@ -156,7 +156,19 @@ steps:
       n_components: 4
     approved: true
   09_thermodynamic_validation:
-    status: pending
-    artifacts: []
-    metrics: {}
-    approved: false
+    status: completed
+    artifacts:
+      - model/thermodynamic.py (compute_properties, validate_candidates)
+      - scripts/run_thermo_validation.py
+      - model/saved/thermo_validation.csv (645 rows)
+      - tests/test_thermodynamic.py (9 tests)
+      - docs/reports/09_thermodynamic_validation.md
+      - figures/09_thermodynamic_validation/ (4 figures)
+    metrics:
+      spearman_rho: 0.372
+      eos_success_rate: 0.811
+      n_valid_candidates: 523
+      n_failed_eos: 122
+      top20_overlap: 0.10
+      n_tests: 128
+    approved: true

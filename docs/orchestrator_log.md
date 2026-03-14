@@ -145,3 +145,23 @@ Batch prediction supports CSV upload for bulk screening.
 **Next action**: Start Step 09 (Thermodynamic Validation). This is Tier 1 — requires human approval.
 
 ---
+
+## 2026-03-14: Step 09 — Thermodynamic Validation (Completed, Approved)
+
+**What was done**: Created `model/thermodynamic.py` with teqp-based EOS property computation
+(vapor pressure, liquid density at 298.15 K). Ran validation on all 645 screening candidates.
+Computed Spearman rank correlation between parameter-space and property-space distances.
+Generated 4 figures (param vs property scatter, VP comparison, rank comparison bump chart,
+sensitivity analysis). 9 new tests (128 total).
+
+**Key metrics**: Spearman ρ = 0.372 (moderate correlation). EOS success rate 81.1% (523/645).
+Only 2/20 top parameter-ranked candidates stay in top-20 after property re-ranking. Best
+thermodynamic matches: difluorocyclobutane (VP ratio 0.96), fluoropentene (VP ratio 0.99).
+
+**Decisions**: Parameter-space distance is a moderate but imperfect proxy. Production recommendation:
+use parameter distance for cheap initial ranking, then validate top-50 with EOS before synthesis.
+Sensitivity analysis suggests reweighting from 3:1:1 to 5:2:1 (ε/k:σ:m).
+
+**This is the final step. All 9 steps complete.**
+
+---
