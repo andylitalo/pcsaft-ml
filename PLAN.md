@@ -65,12 +65,14 @@ Orchestrator (Claude Code)
 ├── Determine next actionable step(s) from state.yaml
 ├── For each step:
 │   ├── Create branch step-NN-<name>
+│   ├── Push branch to origin after first step commit
 │   ├── Read docs/steps/NN_<name>.md (includes science improvement sections)
 │   ├── Run: python scripts/check_gate.py NN
 │   ├── Spawn sub-agent to implement the step
 │   ├── Sub-agent: code, test, train, evaluate, generate figures, write report
 │   ├── Verify: tests pass, artifacts exist, metrics in expected range
 │   ├── Present report to human for approval
+│   ├── Ensure step branch is pushed to origin before merge
 │   ├── On approval: merge branch to main, update state.yaml
 │   └── On rejection: sub-agent revises, re-submit
 ├── Proceed to next step(s) whose dependencies are satisfied
@@ -81,12 +83,15 @@ Orchestrator (Claude Code)
 
 - `main` — approved, working code only
 - `step-NN-<name>` — per-step work branches (e.g., `step-01-morgan-fps`)
+- Every step branch should be pushed to `origin` after its first real commit and again at step completion
 - Merge to `main` only after approval (human or auto, per tier)
 
 ### Merge Strategy
 
 - **Squash merge** to `main`: `git merge --squash step-NN-<name> && git commit`.
   This produces one clean commit per step on `main`, matching the commit convention.
+- **No PR requirement**: This is a solo project. Branches are pushed to GitHub for backup,
+  visibility, and CI, but merges to `main` happen directly after approval without opening a PR.
 - **Merge conflict resolution**: The orchestrator resolves conflicts. If the conflict is
   non-trivial (more than import ordering or `__init__.py` re-exports), the orchestrator
   re-launches the step agent on a fresh branch rebased from the updated `main`.
@@ -95,6 +100,7 @@ Orchestrator (Claude Code)
   2. `ruff check .` passes
   3. Step report exists and references valid figure paths
   4. Gate check for downstream steps passes
+  5. Step branch has been pushed to `origin`
 
 ### Approval Model
 
@@ -110,6 +116,7 @@ If ALL of the following pass, the orchestrator auto-merges without human review:
 2. `ruff check .` exits 0
 3. `python scripts/check_gate.py <next_step>` exits 0 for all gated steps
 4. The step report exists at `docs/reports/NN_<name>.md` with all required sections
+5. The step branch has been pushed to `origin`
 
 The human reviews the infra batch at the end. To force human approval for all steps,
 set `REQUIRE_HUMAN_APPROVAL=all` in `state.yaml`.
