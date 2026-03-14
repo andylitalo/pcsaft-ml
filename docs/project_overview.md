@@ -2,7 +2,7 @@
 
 ## Goal
 
-Screen novel hydrofluoroolefin (HFO) candidates as drop-in replacements for cyclopentane in polyurethane foam blowing, using machine learning to predict thermodynamic (PC-SAFT) parameters from molecular structure.
+Screen candidate blowing agents, including HFOs and other low-GWP chemistries, as drop-in replacements for cyclopentane in polyurethane foam blowing, using machine learning to predict thermodynamic (PC-SAFT) parameters from molecular structure.
 
 ## Architecture
 
@@ -13,7 +13,7 @@ SMILES → RDKit 2D Descriptors → Random Forest → PC-SAFT Parameters (m, σ,
 Two main components:
 
 1. **ML Model** (`model/`): Trains Random Forest regressors on known PC-SAFT parameters to predict m, σ, and ε/k from molecular structure.
-2. **Screening Pipeline** (`screening/`): Generates HFO candidates, filters by synthesizability and patent freedom, then ranks by PC-SAFT similarity to cyclopentane.
+2. **Screening Pipeline** (`screening/`): Generates candidate blowing-agent chemistries, filters by synthesizability and patent freedom, then ranks them by PC-SAFT similarity to cyclopentane.
 
 ## Quick Start
 

@@ -58,4 +58,3 @@ screening/results/*.csv
 
 # Downloaded data (regenerate via scripts)
 model/data/esper_pcsaft.csv
-model/data/pcsaft_data.csv

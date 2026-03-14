@@ -41,6 +41,7 @@ MODEL_COLORS = {
     "gc_pcsaft": "#1b9e77",
     "rf": "#d95f02",
     "nn": "#7570b3",
+    "chemberta": "#e7298a",
 }
 
 

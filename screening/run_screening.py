@@ -2,9 +2,11 @@
 
 Usage:
     python -m screening.run_screening [--skip-patents] [--sa-threshold 4.5]
+                                       [--scaffold-set {hfo,broad,all}]
 """
 
 import argparse
+import logging
 from pathlib import Path
 
 import pandas as pd
@@ -16,10 +18,16 @@ from screening.filters import (
 )
 from screening.generate import generate_hfo_candidates
 
+logger = logging.getLogger(__name__)
+
 RESULTS_DIR = Path(__file__).parent / "results"
 
 
-def run_screening(skip_patents: bool = False, sa_threshold: float = 4.5):
+def run_screening(
+    skip_patents: bool = False,
+    sa_threshold: float = 4.5,
+    scaffold_set: str = "hfo",
+):
     """Run the full 4-stage screening pipeline.
 
     Parameters
@@ -28,14 +36,19 @@ def run_screening(skip_patents: bool = False, sa_threshold: float = 4.5):
         If True, skip the PubChem patent check (useful for offline testing).
     sa_threshold : float
         SA Score cutoff for synthesizability filter.
+    scaffold_set : str
+        Scaffold family set: "hfo" (original HFOs only), "broad" (all
+        families: HFO + HCFO + HFE + unsaturated + cyclic), "all" (same
+        as broad).
     """
     print("=" * 60)
     print("Blowing Agent Screening Pipeline")
+    print(f"  Scaffold set: {scaffold_set}")
     print("=" * 60)
 
     # Stage 1: Generate candidates
-    print("\n[1/4] Generating HFO candidates...")
-    candidates = generate_hfo_candidates()
+    print(f"\n[1/4] Generating candidates (scaffold_set={scaffold_set})...")
+    candidates = generate_hfo_candidates(scaffold_set=scaffold_set)
 
     # Stage 2: SA Score filter
     print("\n[2/4] Filter 1: Synthetic Accessibility Score...")
@@ -43,7 +56,7 @@ def run_screening(skip_patents: bool = False, sa_threshold: float = 4.5):
 
     # Stage 3: Patent filter
     if skip_patents:
-        print("\n[3/4] Filter 2: Patent check — SKIPPED")
+        print("\n[3/4] Filter 2: Patent check -- SKIPPED")
         patent_passed = sa_passed
     else:
         print("\n[3/4] Filter 2: PubChem patent check...")
@@ -55,7 +68,8 @@ def run_screening(skip_patents: bool = False, sa_threshold: float = 4.5):
 
     # Save results
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    output_path = RESULTS_DIR / "ranked_candidates.csv"
+    suffix = f"_{scaffold_set}" if scaffold_set != "hfo" else ""
+    output_path = RESULTS_DIR / f"ranked_candidates{suffix}.csv"
 
     if ranked:
         df = pd.DataFrame(ranked)
@@ -85,8 +99,19 @@ def main():
         default=4.5,
         help="SA Score threshold (default: 4.5)",
     )
+    parser.add_argument(
+        "--scaffold-set",
+        choices=["hfo", "broad", "all"],
+        default="hfo",
+        help="Scaffold family set (default: hfo). 'broad'/'all' includes HCFOs, "
+             "HFEs, unsaturated hydrocarbons, and cyclic fluorinated compounds.",
+    )
     args = parser.parse_args()
-    run_screening(skip_patents=args.skip_patents, sa_threshold=args.sa_threshold)
+    run_screening(
+        skip_patents=args.skip_patents,
+        sa_threshold=args.sa_threshold,
+        scaffold_set=args.scaffold_set,
+    )
 
 
 if __name__ == "__main__":

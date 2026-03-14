@@ -309,9 +309,9 @@ def main():
     parser = argparse.ArgumentParser(description="Train PC-SAFT prediction models")
     parser.add_argument(
         "--model",
-        choices=["rf", "nn"],
+        choices=["rf", "nn", "chemberta"],
         default="rf",
-        help="Model type: rf (Random Forest) or nn (Neural Network). Default: rf",
+        help="Model type: rf (Random Forest), nn (Neural Network), or chemberta. Default: rf",
     )
     parser.add_argument(
         "--data",
@@ -330,7 +330,11 @@ def main():
     )
     args = parser.parse_args()
 
-    if args.model == "nn":
+    if args.model == "chemberta":
+        from model.hf.train_chemberta import train_chemberta
+
+        train_chemberta(source=args.data)
+    elif args.model == "nn":
         train_neural_network(
             source=args.data,
             features=args.features,

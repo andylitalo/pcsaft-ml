@@ -16,6 +16,7 @@ from sklearn.preprocessing import StandardScaler
 from model.data.descriptors import build_features
 from model.data.load import TARGETS
 from model.gc_pcsaft import predict_gc_pcsaft
+from model.hf.chemberta_model import ChemBERTaForPCSAFT
 from model.nn.architecture import PCSAFTNet
 
 logger = logging.getLogger(__name__)
@@ -263,3 +264,95 @@ class NNModel:
                 info = self._target_scalers[t]
                 result[f"{t}_std"][valid_mask] = mc_result[f"{t}_std"] * info["std"]
         return result
+
+
+# ---------------------------------------------------------------------------
+# ChemBERTa wrapper
+# ---------------------------------------------------------------------------
+
+@register_model("chemberta")
+class ChemBERTaModel:
+    """ChemBERTa fine-tuned wrapper with MC Dropout uncertainty."""
+
+    def __init__(self):
+        self._model: ChemBERTaForPCSAFT | None = None
+        self._tokenizer = None
+        self._target_scalers: dict[str, dict[str, float]] | None = None
+
+    def load(self) -> None:
+        from transformers import AutoTokenizer
+
+        chemberta_dir = SAVED_DIR / "chemberta"
+
+        # Load model weights
+        weights_path = chemberta_dir / "chemberta_pcsaft.pt"
+        if not weights_path.exists():
+            raise FileNotFoundError(f"ChemBERTa weights not found: {weights_path}")
+
+        self._model = ChemBERTaForPCSAFT()
+        state_dict = torch.load(weights_path, map_location="cpu", weights_only=False)
+        self._model.load_state_dict(state_dict)
+        self._model.eval()
+
+        # Load tokenizer
+        tokenizer_dir = chemberta_dir / "tokenizer"
+        if tokenizer_dir.exists():
+            self._tokenizer = AutoTokenizer.from_pretrained(str(tokenizer_dir))
+        else:
+            self._tokenizer = AutoTokenizer.from_pretrained(
+                "seyonec/ChemBERTa-zinc-base-v1"
+            )
+
+        # Load target scalers
+        scaler_path = chemberta_dir / "target_scalers.json"
+        if not scaler_path.exists():
+            raise FileNotFoundError(f"Target scalers not found: {scaler_path}")
+        self._target_scalers = json.loads(scaler_path.read_text())
+
+    def _tokenize(self, smiles_list: list[str]) -> dict[str, torch.Tensor]:
+        return self._tokenizer(
+            smiles_list,
+            padding="max_length",
+            truncation=True,
+            max_length=128,
+            return_tensors="pt",
+        )
+
+    def _denormalize(self, target: str, values: np.ndarray) -> np.ndarray:
+        info = self._target_scalers[target]
+        return values * info["std"] + info["mean"]
+
+    def predict(self, smiles_list: list[str]) -> dict[str, np.ndarray]:
+        if self._model is None:
+            self.load()
+        encodings = self._tokenize(smiles_list)
+        self._model.eval()
+        with torch.no_grad():
+            result = self._model(
+                input_ids=encodings["input_ids"],
+                attention_mask=encodings["attention_mask"],
+            )
+        preds = result["predictions"].cpu().numpy()  # (n, 3)
+
+        output: dict[str, np.ndarray] = {}
+        for i, target in enumerate(TARGETS):
+            output[target] = self._denormalize(target, preds[:, i])
+        return output
+
+    def predict_with_uncertainty(
+        self, smiles_list: list[str], n_forward: int = 30
+    ) -> dict[str, np.ndarray]:
+        if self._model is None:
+            self.load()
+        encodings = self._tokenize(smiles_list)
+        raw = self._model.predict_with_uncertainty(
+            input_ids=encodings["input_ids"],
+            attention_mask=encodings["attention_mask"],
+            n_forward=n_forward,
+        )
+        output: dict[str, np.ndarray] = {}
+        for target in TARGETS:
+            output[target] = self._denormalize(target, raw[target])
+            info = self._target_scalers[target]
+            output[f"{target}_std"] = raw[f"{target}_std"] * info["std"]
+        return output
