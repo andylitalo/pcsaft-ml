@@ -108,3 +108,22 @@ submissions). 14 new tests verify file structure and YAML content. No Docker bui
 **Next action**: Start Step 07 (Kubeflow Retrain Pipeline).
 
 ---
+
+## 2026-03-14: Step 07 — Kubeflow Retrain Pipeline (Completed, Auto-Approved)
+
+**What was done**: Created 6-component KFP pipeline DAG: validate_data (SMILES + range checks),
+merge_datasets (InChI dedup + versioned snapshots), retrain_model (RF on merged data),
+evaluate_model (MAE/RMSE/R² on test set), compare_models (champion/challenger avg R²),
+promote_model (conditional copy to production). Pipeline compiles to 22KB YAML. Cron-based
+trigger checks for >= 10 new submissions. Self-contained components with all imports inside
+function body for KFP container isolation. 11 new tests (99 total).
+
+**Key features**: Champion/challenger promotion requires avg R² improvement > 0.005.
+OutputPath(str) used instead of Input[Dataset]/Output[Model] for simpler testing.
+InChI-based deduplication handles SMILES variations.
+
+**Tier 2 auto-approve**: 99/99 tests pass, ruff clean, gate 08 OK, report exists.
+
+**Next action**: Start Step 08 (Streamlit Portal).
+
+---

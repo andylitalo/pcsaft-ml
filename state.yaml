@@ -118,10 +118,26 @@ steps:
       n_tests: 88
     approved: true
   07_kubeflow_retrain_pipeline:
-    status: pending
-    artifacts: []
-    metrics: {}
-    approved: false
+    status: completed
+    artifacts:
+      - pipeline/components/validate.py
+      - pipeline/components/merge.py
+      - pipeline/components/retrain.py
+      - pipeline/components/evaluate.py
+      - pipeline/components/compare.py
+      - pipeline/components/promote.py
+      - pipeline/pipeline.py
+      - pipeline/trigger.py
+      - pipeline/pcsaft_retrain_pipeline.yaml (22KB compiled)
+      - pipeline/README.md
+      - tests/test_kubeflow.py (11 tests)
+      - docs/reports/07_kubeflow_retrain_pipeline.md
+    metrics:
+      n_components: 6
+      n_tests: 99
+      pipeline_yaml_size_kb: 22
+      promotion_threshold: 0.005
+    approved: true
   08_streamlit_portal:
     status: pending
     artifacts: []
