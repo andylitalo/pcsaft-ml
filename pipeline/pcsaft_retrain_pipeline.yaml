@@ -1,0 +1,526 @@
+# PIPELINE DEFINITION
+# Name: pcsaft-retrain-pipeline
+# Description: Automated PC-SAFT model retraining with champion/challenger comparison
+# Inputs:
+#    champion_metrics_path: str [Default: 'model/saved/champion_metrics.json']
+#    champion_test_csv: str [Default: 'model/saved/test_set.csv']
+#    existing_csv: str [Default: 'model/data/esper_pcsaft.csv']
+#    improvement_threshold: float [Default: 0.005]
+#    production_model_path: str [Default: '/models/production/pcsaft_rf.joblib']
+#    submissions_csv: str [Default: 'serving/submissions.csv']
+components:
+  comp-compare-models:
+    executorLabel: exec-compare-models
+    inputDefinitions:
+      parameters:
+        challenger_metrics:
+          description: Path to challenger model evaluation metrics JSON.
+          parameterType: STRING
+        champion_metrics:
+          description: Path to champion model evaluation metrics JSON.
+          parameterType: STRING
+        improvement_threshold:
+          defaultValue: 0.005
+          description: "Minimum R\xB2 improvement to promote (default 0.005)."
+          isOptional: true
+          parameterType: NUMBER_DOUBLE
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: BOOLEAN
+  comp-condition-1:
+    dag:
+      tasks:
+        promote-model:
+          cachingOptions:
+            enableCache: true
+          componentRef:
+            name: comp-promote-model
+          inputs:
+            parameters:
+              challenger_model:
+                componentInputParameter: pipelinechannel--retrain-model-model_artifact
+              production_path:
+                componentInputParameter: pipelinechannel--production_model_path
+          taskInfo:
+            name: promote-model
+    inputDefinitions:
+      parameters:
+        pipelinechannel--compare-models-Output:
+          parameterType: BOOLEAN
+        pipelinechannel--production_model_path:
+          parameterType: STRING
+        pipelinechannel--retrain-model-model_artifact:
+          parameterType: STRING
+  comp-evaluate-model:
+    executorLabel: exec-evaluate-model
+    inputDefinitions:
+      parameters:
+        model_artifact:
+          description: Path to trained model artifact.
+          parameterType: STRING
+        test_csv:
+          description: Path to test set CSV.
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: NUMBER_DOUBLE
+        eval_metrics_artifact:
+          description: Path to save evaluation metrics JSON.
+          parameterType: STRING
+  comp-merge-datasets:
+    executorLabel: exec-merge-datasets
+    inputDefinitions:
+      parameters:
+        existing_csv:
+          description: Path to existing training data CSV.
+          parameterType: STRING
+        run_id:
+          description: Pipeline run ID for versioned snapshot.
+          parameterType: STRING
+        valid_csv:
+          description: Path to validated submissions CSV.
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: NUMBER_INTEGER
+        merged_csv:
+          description: Path to save merged and deduplicated dataset.
+          parameterType: STRING
+        version_csv:
+          description: Path to save versioned snapshot (data/versions/train_v{run_id}.csv).
+          parameterType: STRING
+  comp-promote-model:
+    executorLabel: exec-promote-model
+    inputDefinitions:
+      parameters:
+        challenger_model:
+          description: Path to challenger model artifact to promote.
+          parameterType: STRING
+        production_path:
+          defaultValue: /models/production/pcsaft_rf.joblib
+          description: 'Production model path (default: /models/production/pcsaft_rf.joblib).'
+          isOptional: true
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: STRING
+  comp-retrain-model:
+    executorLabel: exec-retrain-model
+    inputDefinitions:
+      parameters:
+        merged_csv:
+          description: Path to merged training data CSV.
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: NUMBER_DOUBLE
+        metrics_artifact:
+          description: Path to save training metrics JSON.
+          parameterType: STRING
+        model_artifact:
+          description: Path to save trained model artifact (joblib dict of RF models).
+          parameterType: STRING
+  comp-validate-data:
+    executorLabel: exec-validate-data
+    inputDefinitions:
+      parameters:
+        input_csv:
+          description: Path to submitted PC-SAFT data CSV.
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: NUMBER_INTEGER
+        rejected_csv:
+          description: Path to save rejected rows CSV with rejection reason.
+          parameterType: STRING
+        valid_csv:
+          description: Path to save validated rows CSV.
+          parameterType: STRING
+deploymentSpec:
+  executors:
+    exec-compare-models:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - compare_models
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef compare_models(\n    champion_metrics: str,\n    challenger_metrics:\
+          \ str,\n    improvement_threshold: float = 0.005,\n) -> bool:\n    \"\"\"\
+          Compare champion and challenger models.\n\n    Promotes challenger if average\
+          \ R\xB2 improvement > threshold.\n\n    Parameters\n    ----------\n   \
+          \ champion_metrics : str\n        Path to champion model evaluation metrics\
+          \ JSON.\n    challenger_metrics : str\n        Path to challenger model\
+          \ evaluation metrics JSON.\n    improvement_threshold : float\n        Minimum\
+          \ R\xB2 improvement to promote (default 0.005).\n\n    Returns\n    -------\n\
+          \    bool\n        True if challenger should be promoted to production.\n\
+          \    \"\"\"\n    return compare_models_logic(\n        champion_metrics,\n\
+          \        challenger_metrics,\n        improvement_threshold,\n    )\n\n"
+        image: python:3.11-slim
+    exec-evaluate-model:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - evaluate_model
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pandas==2.1.0'\
+          \ 'numpy==1.26.0' 'rdkit==2023.9.1' 'scikit-learn==1.3.0' 'joblib==1.3.0'\
+          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef evaluate_model(\n    model_artifact: str,\n    test_csv: str,\n\
+          \    eval_metrics_artifact: dsl.OutputPath(str),\n) -> float:\n    \"\"\"\
+          Evaluate the retrained model on held-out test set.\n\n    Computes MAE,\
+          \ RMSE, R\xB2 on test set for each parameter.\n\n    Parameters\n    ----------\n\
+          \    model_artifact : str\n        Path to trained model artifact.\n   \
+          \ test_csv : str\n        Path to test set CSV.\n    eval_metrics_artifact\
+          \ : OutputPath(str)\n        Path to save evaluation metrics JSON.\n\n \
+          \   Returns\n    -------\n    float\n        Average test R\xB2 across all\
+          \ three parameters.\n    \"\"\"\n    result = evaluate_model_logic(model_artifact,\
+          \ test_csv, eval_metrics_artifact)\n    return result[\"avg_r2\"]\n\n"
+        image: python:3.11-slim
+    exec-merge-datasets:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - merge_datasets
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pandas==2.1.0'\
+          \ 'rdkit==2023.9.1'  &&  python3 -m pip install --quiet --no-warn-script-location\
+          \ 'kfp==2.16.0' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"\
+          3.9\"' && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef merge_datasets(\n    valid_csv: str,\n    existing_csv: str,\n\
+          \    run_id: str,\n    merged_csv: dsl.OutputPath(str),\n    version_csv:\
+          \ dsl.OutputPath(str),\n) -> int:\n    \"\"\"Merge validated submissions\
+          \ with existing training data.\n\n    Deduplicates on canonical InChI to\
+          \ handle identical molecules\n    with different SMILES representations.\n\
+          \n    Parameters\n    ----------\n    valid_csv : str\n        Path to validated\
+          \ submissions CSV.\n    existing_csv : str\n        Path to existing training\
+          \ data CSV.\n    run_id : str\n        Pipeline run ID for versioned snapshot.\n\
+          \    merged_csv : OutputPath(str)\n        Path to save merged and deduplicated\
+          \ dataset.\n    version_csv : OutputPath(str)\n        Path to save versioned\
+          \ snapshot (data/versions/train_v{run_id}.csv).\n\n    Returns\n    -------\n\
+          \    int\n        Number of rows in merged dataset.\n    \"\"\"\n    return\
+          \ merge_datasets_logic(\n        valid_csv,\n        existing_csv,\n   \
+          \     merged_csv,\n        run_id,\n        version_csv,\n    )\n\n"
+        image: python:3.11-slim
+    exec-promote-model:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - promote_model
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef promote_model(\n    challenger_model: str,\n    production_path:\
+          \ str = \"/models/production/pcsaft_rf.joblib\",\n) -> str:\n    \"\"\"\
+          Promote challenger model to production.\n\n    Copies challenger model artifact\
+          \ to production serving path.\n    In a real deployment, this would trigger\
+          \ a K8s rollout restart.\n\n    Parameters\n    ----------\n    challenger_model\
+          \ : str\n        Path to challenger model artifact to promote.\n    production_path\
+          \ : str\n        Production model path (default: /models/production/pcsaft_rf.joblib).\n\
+          \n    Returns\n    -------\n    str\n        Confirmation message.\n   \
+          \ \"\"\"\n    return promote_model_logic(challenger_model, production_path)\n\
+          \n"
+        image: python:3.11-slim
+    exec-retrain-model:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - retrain_model
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pandas==2.1.0'\
+          \ 'numpy==1.26.0' 'rdkit==2023.9.1' 'scikit-learn==1.3.0' 'joblib==1.3.0'\
+          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef retrain_model(\n    merged_csv: str,\n    model_artifact: dsl.OutputPath(str),\n\
+          \    metrics_artifact: dsl.OutputPath(str),\n) -> float:\n    \"\"\"Retrain\
+          \ the Random Forest model on merged data.\n\n    Uses RDKit descriptors\
+          \ + Morgan fingerprints as features.\n    Trains one RF model per PC-SAFT\
+          \ parameter (m, sigma, epsilon_k).\n\n    Parameters\n    ----------\n \
+          \   merged_csv : str\n        Path to merged training data CSV.\n    model_artifact\
+          \ : OutputPath(str)\n        Path to save trained model artifact (joblib\
+          \ dict of RF models).\n    metrics_artifact : OutputPath(str)\n        Path\
+          \ to save training metrics JSON.\n\n    Returns\n    -------\n    float\n\
+          \        Average test R\xB2 across all three parameters.\n    \"\"\"\n \
+          \   result = retrain_model_logic(merged_csv, model_artifact, metrics_artifact)\n\
+          \    return result[\"avg_r2_test\"]\n\n"
+        image: python:3.11-slim
+    exec-validate-data:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - validate_data
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pandas==2.1.0'\
+          \ 'rdkit==2023.9.1'  &&  python3 -m pip install --quiet --no-warn-script-location\
+          \ 'kfp==2.16.0' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"\
+          3.9\"' && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef validate_data(\n    input_csv: str,\n    valid_csv: dsl.OutputPath(str),\n\
+          \    rejected_csv: dsl.OutputPath(str),\n) -> int:\n    \"\"\"Validate submitted\
+          \ PC-SAFT data.\n\n    Checks:\n    - SMILES validity via RDKit\n    - m\
+          \ in [0.5, 10]\n    - sigma in [2.0, 6.0]\n    - epsilon_k in [50, 600]\n\
+          \n    Parameters\n    ----------\n    input_csv : str\n        Path to submitted\
+          \ PC-SAFT data CSV.\n    valid_csv : OutputPath(str)\n        Path to save\
+          \ validated rows CSV.\n    rejected_csv : OutputPath(str)\n        Path\
+          \ to save rejected rows CSV with rejection reason.\n\n    Returns\n    -------\n\
+          \    int\n        Number of valid rows.\n    \"\"\"\n    return validate_data_logic(input_csv,\
+          \ valid_csv, rejected_csv)\n\n"
+        image: python:3.11-slim
+pipelineInfo:
+  description: Automated PC-SAFT model retraining with champion/challenger comparison
+  name: pcsaft-retrain-pipeline
+root:
+  dag:
+    tasks:
+      compare-models:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-compare-models
+        dependentTasks:
+        - evaluate-model
+        inputs:
+          parameters:
+            challenger_metrics:
+              taskOutputParameter:
+                outputParameterKey: eval_metrics_artifact
+                producerTask: evaluate-model
+            champion_metrics:
+              componentInputParameter: champion_metrics_path
+            improvement_threshold:
+              componentInputParameter: improvement_threshold
+        taskInfo:
+          name: compare-models
+      condition-1:
+        componentRef:
+          name: comp-condition-1
+        dependentTasks:
+        - compare-models
+        - retrain-model
+        inputs:
+          parameters:
+            pipelinechannel--compare-models-Output:
+              taskOutputParameter:
+                outputParameterKey: Output
+                producerTask: compare-models
+            pipelinechannel--production_model_path:
+              componentInputParameter: production_model_path
+            pipelinechannel--retrain-model-model_artifact:
+              taskOutputParameter:
+                outputParameterKey: model_artifact
+                producerTask: retrain-model
+        taskInfo:
+          name: promote-if-better
+        triggerPolicy:
+          condition: inputs.parameter_values['pipelinechannel--compare-models-Output']
+            == true
+      evaluate-model:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-evaluate-model
+        dependentTasks:
+        - retrain-model
+        inputs:
+          parameters:
+            model_artifact:
+              taskOutputParameter:
+                outputParameterKey: model_artifact
+                producerTask: retrain-model
+            test_csv:
+              componentInputParameter: champion_test_csv
+        taskInfo:
+          name: evaluate-model
+      merge-datasets:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-merge-datasets
+        dependentTasks:
+        - validate-data
+        inputs:
+          parameters:
+            existing_csv:
+              componentInputParameter: existing_csv
+            run_id:
+              runtimeValue:
+                constant: '{{$.pipeline_job_uuid}}'
+            valid_csv:
+              taskOutputParameter:
+                outputParameterKey: valid_csv
+                producerTask: validate-data
+        taskInfo:
+          name: merge-datasets
+      retrain-model:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-retrain-model
+        dependentTasks:
+        - merge-datasets
+        inputs:
+          parameters:
+            merged_csv:
+              taskOutputParameter:
+                outputParameterKey: merged_csv
+                producerTask: merge-datasets
+        taskInfo:
+          name: retrain-model
+      validate-data:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-validate-data
+        inputs:
+          parameters:
+            input_csv:
+              componentInputParameter: submissions_csv
+        taskInfo:
+          name: validate-data
+  inputDefinitions:
+    parameters:
+      champion_metrics_path:
+        defaultValue: model/saved/champion_metrics.json
+        description: Path to champion model's metrics JSON.
+        isOptional: true
+        parameterType: STRING
+      champion_test_csv:
+        defaultValue: model/saved/test_set.csv
+        description: Path to champion model's test set.
+        isOptional: true
+        parameterType: STRING
+      existing_csv:
+        defaultValue: model/data/esper_pcsaft.csv
+        description: Path to existing training data CSV.
+        isOptional: true
+        parameterType: STRING
+      improvement_threshold:
+        defaultValue: 0.005
+        description: "Minimum R\xB2 improvement for promotion (default 0.005)."
+        isOptional: true
+        parameterType: NUMBER_DOUBLE
+      production_model_path:
+        defaultValue: /models/production/pcsaft_rf.joblib
+        description: Production model deployment path.
+        isOptional: true
+        parameterType: STRING
+      submissions_csv:
+        defaultValue: serving/submissions.csv
+        description: Path to submitted PC-SAFT data CSV.
+        isOptional: true
+        parameterType: STRING
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.16.0
