@@ -58,3 +58,24 @@ comparison_metrics.csv gitignored (generated artifact).
 Gate 04 check passes. Branch: `step-04-chemberta`.
 
 ---
+
+## 2026-03-14: Step 04 — ChemBERTa Fine-Tuning (Completed)
+
+**What was done**: Fine-tuned ChemBERTa (seyonec/ChemBERTa-zinc-base-v1, 85M params) for PC-SAFT
+regression. Created model/hf/ package with ChemBERTaForPCSAFT, PCSAFTSmilesDataset, training script.
+Registered in model/registry.py. Added --model chemberta to train.py. Expanded screening/generate.py
+with HCFOs, HFEs, unsaturated hydrocarbons, cyclic fluorinated scaffolds (805 candidates, 645 after SA).
+Generated 4 figures, wrote 4-way comparison report. 13 new tests (65 total).
+
+**Key metrics**: ChemBERTa R²=0.53/0.25/0.27 — strong 2nd behind RF (0.62/0.35/0.33), significantly
+beats NN (0.47/0.11/0.14). Transfer learning from 77M SMILES helps despite only 1,440 fine-tuning samples.
+Early stopped at epoch 8, ~2.5 min on CPU. Best model for deployment: RF.
+
+**Decisions**: RF chosen as deployment model. ChemBERTa recommended for transfer-learning scenarios with
+more data. AD limitations for ChemBERTa documented (Morgan FP space vs tokenizer space). Expanded screening
+uses RF for ranking.
+
+**Next action**: Start Step 05 (FastAPI Serving). Tier 2 auto-approve if tests+ruff+gate pass.
+Gate 05 check passes. Branch: `step-05-fastapi`.
+
+---

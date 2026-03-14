@@ -64,10 +64,31 @@ steps:
       n_tests: 52
     approved: true
   04_chemberta_finetuning:
-    status: pending
-    artifacts: []
-    metrics: {}
-    approved: false
+    status: completed
+    artifacts:
+      - model/hf/chemberta_model.py (ChemBERTaForPCSAFT)
+      - model/hf/dataset.py (PCSAFTSmilesDataset)
+      - model/hf/train_chemberta.py (fine-tuning script)
+      - model/registry.py (added ChemBERTa wrapper)
+      - model/saved/chemberta/ (weights, tokenizer, scalers)
+      - screening/generate.py (expanded scaffold families)
+      - screening/run_screening.py (--scaffold-set flag)
+      - screening/results/ranked_candidates_broad.csv
+      - docs/reports/04_chemberta_finetuning.md
+      - figures/04_chemberta/
+      - tests/test_chemberta.py (13 tests)
+    metrics:
+      chemberta_r2_m: 0.53
+      chemberta_r2_sigma: 0.25
+      chemberta_r2_epsilon_k: 0.27
+      chemberta_mae_m: 0.766
+      chemberta_mae_sigma: 0.226
+      chemberta_mae_epsilon_k: 31.2
+      best_epoch: 8
+      n_broad_candidates: 805
+      n_sa_passed: 645
+      n_tests: 65
+    approved: true
   05_fastapi_serving:
     status: pending
     artifacts: []
