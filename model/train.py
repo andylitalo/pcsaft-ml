@@ -1,7 +1,7 @@
-"""Train Random Forest models to predict PC-SAFT parameters.
+"""Train PC-SAFT prediction models (Random Forest or Neural Network).
 
 Usage:
-    python -m model.train [--data esper|fallback|combined|auto] [--features ...] [--tune]
+    python -m model.train [--model rf|nn] [--data ...] [--features ...] [--tune]
 """
 
 import argparse
@@ -214,8 +214,105 @@ def train(
     return models
 
 
+def train_neural_network(
+    source: str = "auto",
+    features: str = "combined",
+    stratify_bins: int = 5,
+) -> None:
+    """Train the PCSAFTNet multi-task neural network.
+
+    Uses the same data loading and feature pipeline as the RF trainer,
+    then delegates to ``model.nn.trainer.train_nn``.
+
+    Parameters
+    ----------
+    source : str
+        Data source: "esper", "fallback", "combined", or "auto".
+    features : str
+        Feature set: "rdkit", "morgan", or "combined".
+    stratify_bins : int
+        Number of epsilon_k bins for stratified splitting.
+    """
+    from model.nn.ad import train_ad_model
+    from model.nn.trainer import train_nn
+
+    use_morgan, use_rdkit = _parse_feature_flags(features)
+
+    print(f"Loading data (source={source})...")
+    df = load_data(source)
+    print(f"  Loaded {len(df)} molecules")
+
+    train_df, test_df = split_data(df, stratify_bins=stratify_bins)
+    print(f"  Train: {len(train_df)}, Test: {len(test_df)}")
+
+    # Compute features on all data together for consistent columns
+    print(f"Computing features (mode={features})...")
+    all_smiles = train_df["smiles"].tolist() + test_df["smiles"].tolist()
+    X_all, feature_names = build_features_with_names(
+        all_smiles,
+        use_morgan=use_morgan,
+        use_rdkit=use_rdkit,
+    )
+    n_train = len(train_df)
+    X_train = X_all[:n_train]
+    X_test = X_all[n_train:]
+
+    # Handle non-finite values
+    train_mask = np.isfinite(X_train).all(axis=1)
+    test_mask = np.isfinite(X_test).all(axis=1)
+    X_train = X_train[train_mask]
+    X_test = X_test[test_mask]
+    train_df = train_df.iloc[train_mask]
+    test_df = test_df.iloc[test_mask]
+
+    print(f"  Features: {len(feature_names)}")
+    print(f"  Usable train: {len(X_train)}, Usable test: {len(X_test)}")
+
+    # Save feature config and names (same as RF pipeline)
+    SAVED_DIR.mkdir(parents=True, exist_ok=True)
+
+    feature_config = {
+        "features": features,
+        "use_morgan": use_morgan,
+        "use_rdkit": use_rdkit,
+        "morgan_radius": 2,
+        "morgan_bits": 2048,
+        "n_features": len(feature_names),
+    }
+    feature_config_path = SAVED_DIR / "feature_config.json"
+    feature_config_path.write_text(json.dumps(feature_config, indent=2) + "\n")
+    print("  Saved feature_config.json")
+
+    joblib.dump(feature_names, SAVED_DIR / "feature_names.joblib")
+    print(f"  Saved feature names ({len(feature_names)} features)")
+
+    # Save test set for evaluation
+    test_df.to_csv(SAVED_DIR / "test_set.csv", index=False)
+    print(f"  Saved test set ({len(test_df)} molecules)")
+
+    # Prepare targets
+    y_train = {target: train_df[target].values for target in TARGETS}
+
+    # Train NN
+    print("\nTraining PCSAFTNet multi-task neural network...")
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+    train_nn(X_train, y_train, feature_config)
+
+    # Train AD model
+    print("\nTraining Applicability Domain model (Isolation Forest)...")
+    train_ad_model(X_train)
+
+    print("\nNN training complete. Artifacts saved to model/saved/")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Train PC-SAFT prediction models")
+    parser.add_argument(
+        "--model",
+        choices=["rf", "nn"],
+        default="rf",
+        help="Model type: rf (Random Forest) or nn (Neural Network). Default: rf",
+    )
     parser.add_argument(
         "--data",
         choices=["esper", "fallback", "combined", "auto"],
@@ -232,7 +329,14 @@ def main():
         "--tune", action="store_true", help="Run GridSearchCV hyperparameter tuning"
     )
     args = parser.parse_args()
-    train(source=args.data, features=args.features, tune=args.tune)
+
+    if args.model == "nn":
+        train_neural_network(
+            source=args.data,
+            features=args.features,
+        )
+    else:
+        train(source=args.data, features=args.features, tune=args.tune)
 
 
 if __name__ == "__main__":

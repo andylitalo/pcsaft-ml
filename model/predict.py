@@ -89,6 +89,50 @@ def predict_pcsaft(smiles_list: list[str]) -> pd.DataFrame:
     return results
 
 
+def predict_rf_with_uncertainty(smiles_list: list[str]) -> dict:
+    """Predict PC-SAFT parameters with RF uncertainty from tree disagreement.
+
+    Uses the variance across individual tree predictions as a measure of
+    model uncertainty.
+
+    Parameters
+    ----------
+    smiles_list : list[str]
+        SMILES strings to predict.
+
+    Returns
+    -------
+    dict[str, np.ndarray]
+        Keys: ``m, sigma, epsilon_k, m_std, sigma_std, epsilon_k_std``.
+    """
+    import numpy as np
+
+    config = _load_feature_config()
+    use_rdkit = config.get("use_rdkit", True)
+    rdkit_names = _get_rdkit_names_from_saved() if use_rdkit else None
+
+    X = build_features(
+        smiles_list,
+        use_morgan=config.get("use_morgan", False),
+        use_rdkit=use_rdkit,
+        morgan_radius=config.get("morgan_radius", 2),
+        morgan_bits=config.get("morgan_bits", 2048),
+        rdkit_names=rdkit_names,
+    )
+
+    result: dict[str, np.ndarray] = {}
+    for target in TARGETS:
+        model = joblib.load(SAVED_DIR / f"rf_{target}.joblib")
+        # Get per-tree predictions
+        tree_preds = np.array([
+            tree.predict(X) for tree in model.estimators_
+        ])  # shape: (n_trees, n_samples)
+        result[target] = tree_preds.mean(axis=0)
+        result[f"{target}_std"] = tree_preds.std(axis=0)
+
+    return result
+
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python -m model.predict SMILES [SMILES ...]")
