@@ -1,0 +1,50 @@
+# Version control
+.git
+.gitignore
+
+# Python cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info
+.pytest_cache
+
+# Virtual environments
+.venv
+venv/
+ENV/
+
+# Documentation and reports
+docs/
+figures/
+*.md
+!pyproject.toml
+
+# Tests
+tests/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# CI/CD
+.github/
+
+# Orchestrator state
+state.yaml
+PLAN.md
+
+# Claude context
+.claude/
+CLAUDE.md
