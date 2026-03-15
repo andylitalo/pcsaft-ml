@@ -198,3 +198,89 @@ steps:
       top20_overlap: 0.10
       n_tests: 128
     approved: true
+  # === Phase 2 Steps ===
+  10_mlsaft_integration:
+    status: completed
+    branch: phase2/experiments
+    metrics:
+      rf_r2_m: 0.6194
+      rf_r2_sigma: 0.3527
+      rf_r2_epsilon_k: 0.3298
+    approved: true
+  11_enhanced_metrics:
+    status: completed
+    branch: phase2/experiments
+    metrics:
+      rf_mare_epsilon_k: 0.113
+      rf_ccc_epsilon_k: 0.496
+      rf_coverage_10pct_epsilon_k: 0.740
+    approved: true
+  02b_gnn_graph_neural_network:
+    status: completed
+    branch: phase2/experiments
+    metrics:
+      gnn_r2_m: 0.76
+      gnn_r2_sigma: 0.77
+      gnn_r2_epsilon_k: 0.73
+    approved: true
+  12_candidate_verification:
+    status: completed
+    branch: phase2/experiments
+    metrics:
+      candidates_verified: 2
+      candidates_total: 645
+      pass_rate: 0.003
+    approved: true
+  18_gc_as_feature_experiment:
+    status: completed
+    branch: phase2/experiments
+    metrics:
+      delta_r2_epsilon_k: -0.037
+      result: negative
+    approved: true
+  19_temperature_sweep_validation:
+    status: completed
+    branch: phase2/experiments
+    metrics:
+      spearman_290_330: 0.992
+    approved: true
+  13_portal_reference_comparison:
+    status: completed
+    branch: phase2/experiments
+    metrics:
+      n_reference_molecules: 24
+      n_new_tests: 7
+      n_tests_total: 183
+    approved: true
+  16_fluorinated_data_expansion:
+    status: completed
+    branch: phase2/experiments
+    metrics:
+      n_fluorinated_compounds: 34
+      n_new_tests: 15
+      n_tests_total: 183
+    approved: true
+  14_applicability_domain:
+    status: completed
+    branch: phase2/experiments
+    metrics:
+      tanimoto_threshold: 0.4
+      n_new_tests: 16
+      n_tests_total: 214
+      n_figures: 4
+    approved: true
+  15_improved_models:
+    status: not_started
+  17_nist_experimental_validation:
+    status: completed
+    branch: phase2/experiments
+    metrics:
+      n_nist_molecules: 57
+      mare_vp_nonpolar: 0.02-0.10
+      mare_density: 0.127
+      n_new_tests: 15
+      n_tests_total: 214
+      n_figures: 4
+    approved: true
+  02c_model_ensemble:
+    status: not_started

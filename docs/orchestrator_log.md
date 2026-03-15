@@ -185,3 +185,80 @@ is expected since learned representations are more selective than handcrafted de
 **Next action**: Branch step complete. All 9 steps + Step 04B finished.
 
 ---
+
+## 2026-03-15: Phase 2 Begin — Steps 10, 11, 02B (Previously Completed)
+
+**Context**: Phase 2 step guides appeared in docs/steps/ for steps 02b, 02c, 10-19.
+Steps 10, 11, and 02b were already completed on the `phase2/experiments` branch
+(5 commits ahead of main). Fixed 17 ruff lint errors from those steps.
+
+**Step 10 (ML-SAFT Integration)**: Integrated SPT-PCSAFT dataset. RF retrain on
+combined data confirmed Phase 1 metrics (R² m:0.6194, σ:0.3527, ε/k:0.3298).
+
+**Step 11 (Enhanced Metrics)**: Added MARE, CCC, coverage@5%/10%, Q² metrics.
+RF MARE(ε/k)=0.113, CCC(ε/k)=0.496, coverage@10%=74%.
+
+**Step 02B (GNN)**: Graph neural network with PCSAFTGraphNet architecture.
+GNN R² m:0.76, σ:0.77, ε/k:0.73 — major improvement over RF baseline.
+
+---
+
+## 2026-03-15: Batch 1 — Steps 12, 18, 19 (Completed)
+
+Three agents ran in parallel on independent branches. All merged to phase2/experiments.
+
+**Step 12 (Candidate Verification)**: 5-criterion screening audit. 2/645 candidates
+pass all criteria (both difluorocyclobutane isomers), confirming Phase 1 verdict.
+Multi-temperature EOS validation at 273/298/323 K. 10 new tests.
+
+**Step 18 (GC-as-Feature)**: NEGATIVE RESULT. GC-PC-SAFT predictions as RF input
+features provide no benefit (m: +0.004, σ: +0.005, ε/k: -0.037 R² delta). Baseline
+Morgan+RDKit remains optimal. 4 new tests.
+
+**Step 19 (Temperature Sweep)**: VP and density at 6 temperatures (230-330 K) for
+top-50 candidates. Rank stability excellent (Spearman ρ > 0.99 for 250-330 K).
+Validates single-temperature screening at 298 K. 9 new tests.
+
+**Current test count**: 161 passing, ruff clean.
+
+**Next action**: Launch Batch 2 — Steps 13 (Portal Reference) and 16 (Fluorinated Data).
+
+---
+
+## 2026-03-15: Batch 2 — Steps 13, 16 (Completed)
+
+Two agents ran in parallel on independent branches. All merged to phase2/experiments.
+
+**Step 13 (Portal Reference Comparison)**: Added GET /reference-molecules endpoint
+with 24 curated molecules from Esper dataset. Portal selectbox replaces hardcoded
+cyclopentane reference. OOD warning banner for out-of-domain predictions. 7 new tests.
+
+**Step 16 (Fluorinated Data Expansion)**: Curated 34 fluorinated compounds (HFCs,
+HFOs, PFCs, fluoroethers) with PC-SAFT parameters from literature. Updated load.py
+with source='fluorinated' option. Analysis script for chemical diversity. 15 new tests.
+
+**Current test count**: 183 passing, ruff clean.
+
+**Next action**: Launch Batch 3 — Steps 14 (Improved AD) and 17 (NIST Validation).
+
+---
+
+## 2026-03-15: Batch 3 — Steps 14, 17 (Completed)
+
+Two agents ran in parallel on independent branches. All merged to phase2/experiments.
+
+**Step 14 (Improved Applicability Domain)**: TanimotoAD using Morgan FP nearest-neighbor
+similarity (threshold 0.4). Williams plot leverage diagnostics for all 3 targets.
+Updated serving API (tanimoto_nn field) and portal (color-coded AD warnings).
+16 new tests, 4 figures.
+
+**Step 17 (NIST Experimental Validation)**: Curated 57 NIST molecules with experimental
+VP and density at 298.15 K. RF MARE(VP) = 2-10% for non-polar compounds, catastrophic
+for associating (1000-25000%). MARE(density) = 12.7%. SPT comparison: MARE(VP) = 300%.
+15 new tests, 4 figures.
+
+**Current test count**: 214 passing, ruff clean.
+
+**Next action**: Launch Batch 4 — Steps 15 (Improved Models) and 02c (Model Ensemble).
+
+---
