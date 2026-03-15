@@ -262,3 +262,93 @@ for associating (1000-25000%). MARE(density) = 12.7%. SPT comparison: MARE(VP) =
 **Next action**: Launch Batch 4 — Steps 15 (Improved Models) and 02c (Model Ensemble).
 
 ---
+
+## 2026-03-15: Step 20 — Systematic HFO/HCFO Enumeration (Completed)
+
+**What was done**: Replaced the hand-curated scaffold + single-substitution generation
+with exhaustive combinatorial F/Cl placement on 16 alkene backbones (C2–C6 acyclic,
+endocyclic, exocyclic). Added `_enumerate_halogen_patterns()` and
+`generate_systematic_candidates()` to `screening/generate.py`. Updated CLI with
+`--scaffold-set systematic --max-cl --max-mw` flags. 15 new tests (all passing).
+
+**Key metrics**: 10,700 raw candidates generated (16× previous 805). 4,663 pass SA ≤ 4.5
+(7.2× previous 645). All 9 known commercial HFOs/HCFOs found. 3 candidates pass all 5
+verification criteria (up from 2): 1-chlorobut-1-ene, (E)-2-chloro-2-butene,
+(Z)-2-chloro-2-butene. Zero HFOs pass all criteria — bottleneck is parameter proximity
+(ε/k systematically lower for fluorinated molecules).
+
+**Key finding**: 131 HFOs and 605 HCFOs pass VP proximity under relaxed criteria.
+Known commercial agents (HFO-1234ze, HCFO-1233zd) rank 1000–4000th out of 4,663 —
+they occupy a fundamentally different region of PC-SAFT parameter space than cyclopentane.
+
+**Decisions**: Focused on alkene backbones only (C=C required for low GWP). Saturated
+fluorocycloalkanes from the old "broad" set are excluded by design. MW < 200 Da filter
+keeps candidates in the volatile blowing agent range.
+
+**Files changed**: `screening/generate.py`, `screening/run_screening.py`,
+`tests/test_systematic_generate.py` (new), `docs/steps/20_systematic_hfo_hcfo_enumeration.md`,
+`docs/reports/20_systematic_hfo_hcfo_enumeration.md`.
+
+**Next action**: Henry's constant analysis to validate parameter-space screening for
+mixture behavior.
+
+---
+
+## 2026-03-15: Step 21 — Henry's Constant Mixture Analysis (Completed)
+
+**What was done**: Computed Henry's constants at infinite dilution in n-hexane at 298 K
+using teqp binary PC-SAFT models. Compared cyclopentane reference against verified
+candidates, top HFOs/HCFOs by parameter distance, HFOs with VP proximity, and known
+commercial blowing agents. Verified VLE self-consistency (P_L = P_V, f_L = f_V).
+
+**Key metrics**: Verified Cl-olefins have H/H(cyclopentane) = 1.02–1.05 (near-identical
+mixture behavior). Commercial HFOs have H ratios of 35–2.9×10⁷ (categorically different).
+Best HFO candidate: tetrafluoromethylenecyclopropane (C=C1C(F)(F)C1(F)F), H ratio = 0.96.
+
+**Key finding**: The exponential Boltzmann sensitivity to ε_ij means a 22% cross-interaction
+deficit (HFO-1234ze) translates to 7 orders of magnitude in Henry's constant. This
+validates parameter-space proximity (especially ε/k weighting) as the correct screening
+metric for mixture behavior. Screening on pure-component VP alone would miss this.
+
+**Decisions**: No new code module created — Henry's constant computed via interactive
+analysis using existing teqp infrastructure. Results documented in report only. A
+persistent `compute_henry()` utility could be added to `model/thermodynamic.py` as
+future work.
+
+**Files changed**: `docs/steps/21_henrys_constant_analysis.md` (new),
+`docs/reports/21_henrys_constant_analysis.md` (new),
+`docs/reports/20_systematic_hfo_hcfo_enumeration.md` (updated finding #5),
+`docs/limitations.md` (updated Sections 1 and 7 with Henry's constant results),
+`state.yaml` (added steps 20 and 21).
+
+**Current test count**: 121 core tests passing (same as pre-step; no new test code for step 21), ruff clean.
+
+**Next action**: Investigate practical viability of tetrafluoromethylenecyclopropane
+(ring strain, thermal stability, synthesis routes, atmospheric lifetime). Consider
+adding `compute_henry()` to `model/thermodynamic.py` for systematic Tier 3 screening.
+
+---
+
+## 2026-03-15: Batch 4 — Steps 15, 02c (Completed)
+
+Two steps ran sequentially (shared `model/registry.py` dependency).
+
+**Step 15 (Improved Models)**: Benchmarked XGBoost and chemprop D-MPNN against RF.
+XGBoost R² m=0.64, σ=0.36, ε/k=0.33 — marginal improvement over RF. Chemprop
+R² m=0.37, σ=0.06, ε/k=0.19 — underperforms in small-data regime (318K params,
+1,440 train). RF remains champion. 14 new tests, 4 figures.
+
+**Step 02c (Model Ensemble)**: Implemented inverse-variance-weighted ensemble
+combining RF + NN (+ optionally ChemBERTa). Key finding: **ensemble underperforms
+RF alone** (R² 0.53/0.08/0.13 vs 0.62/0.35/0.33) because NN MC Dropout
+uncertainty is overconfident (σ ~0.06–0.30), receiving 83–89% of weight despite
+being the weaker model. RF tree disagreement (σ ~0.24–0.81) is well-calibrated
+but conservative. Model disagreement provides useful AD signal (mean Δε/k = 17.4 K).
+GNN unavailable (torch_geometric not installed). 10 new tests, 3 figures.
+
+**Current test count**: 251 passing (1 pre-existing chemprop failure), ruff clean.
+
+**ALL PHASE 2 STEPS COMPLETE.** Steps completed: 10, 11, 02b, 12, 13, 14, 15, 16,
+17, 18, 19, 20, 21, 02c.
+
+---

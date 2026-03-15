@@ -270,7 +270,20 @@ steps:
       n_figures: 4
     approved: true
   15_improved_models:
-    status: not_started
+    status: completed
+    branch: phase2/experiments
+    metrics:
+      xgb_r2_m: 0.64
+      xgb_r2_sigma: 0.36
+      xgb_r2_epsilon_k: 0.33
+      chemprop_r2_m: 0.37
+      chemprop_r2_sigma: 0.06
+      chemprop_r2_epsilon_k: 0.19
+      n_new_tests: 14
+      n_tests_total: 238
+      n_figures: 4
+      promotion: none_rf_remains_champion
+    approved: true
   17_nist_experimental_validation:
     status: completed
     branch: phase2/experiments
@@ -282,5 +295,41 @@ steps:
       n_tests_total: 214
       n_figures: 4
     approved: true
+  20_systematic_hfo_hcfo_enumeration:
+    status: completed
+    metrics:
+      n_generated: 10700
+      n_sa_passed: 4663
+      n_verified: 3
+      n_hfo_vp_pass: 131
+      n_hcfo_vp_pass: 605
+      n_new_tests: 15
+      known_agents_found: 9
+    approved: true
+  21_henrys_constant_analysis:
+    status: completed
+    metrics:
+      h_ratio_verified_min: 1.02
+      h_ratio_verified_max: 1.05
+      h_ratio_hfo1234ze: 2.9e+07
+      h_ratio_hcfo1233zd: 61
+      h_ratio_best_hfo: 0.96
+      best_hfo_candidate: "C=C1C(F)(F)C1(F)F"
+    approved: true
   02c_model_ensemble:
-    status: not_started
+    status: completed
+    branch: step-02c-model-ensemble
+    metrics:
+      ensemble_r2_m: 0.533
+      ensemble_r2_sigma: 0.078
+      ensemble_r2_epsilon_k: 0.133
+      rf_baseline_r2_m: 0.619
+      rf_baseline_r2_sigma: 0.353
+      rf_baseline_r2_epsilon_k: 0.330
+      finding: inv_var_weighting_degrades_due_to_nn_overconfidence
+      nn_weight_pct: 0.85
+      uncertainty_reduction_pct: 72
+      n_new_tests: 10
+      n_tests_total: 251
+      n_figures: 3
+    approved: true
