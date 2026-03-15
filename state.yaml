@@ -89,6 +89,32 @@ steps:
       n_sa_passed: 645
       n_tests: 65
     approved: true
+  04b_chemberta_applicability_domain:
+    status: completed
+    artifacts:
+      - model/hf/ad.py (ChemBERTa embedding-space AD helpers)
+      - model/hf/chemberta_model.py (added encode() method)
+      - model/hf/train_chemberta.py (AD fitting after fine-tuning)
+      - model/registry.py (added embed(), predict_in_domain())
+      - model/evaluate.py (model-specific AD labels)
+      - serving/model_loader.py (branches on model_type for AD)
+      - model/saved/chemberta/chemberta_ad.joblib
+      - model/saved/chemberta/chemberta_ad_metadata.json
+      - model/saved/chemberta/train_cls_embeddings.npy
+      - tests/test_chemberta_ad.py (10 tests)
+      - docs/reports/04b_chemberta_applicability_domain.md
+      - figures/04b_chemberta_ad/ (3 figures)
+    metrics:
+      chemberta_r2_m_overall: 0.535
+      chemberta_r2_m_in_domain: 0.608
+      chemberta_r2_m_ood: 0.249
+      chemberta_r2_sigma_in_domain: 0.249
+      chemberta_r2_epsilon_k_in_domain: 0.197
+      frac_ood_embedding_space: 0.269
+      n_train_embeddings: 1440
+      embedding_dim: 768
+      n_tests: 138
+    approved: true
   05_fastapi_serving:
     status: completed
     artifacts:

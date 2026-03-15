@@ -165,3 +165,23 @@ Sensitivity analysis suggests reweighting from 3:1:1 to 5:2:1 (ε/k:σ:m).
 **This is the final step. All 9 steps complete.**
 
 ---
+
+## 2026-03-14: Step 04B — ChemBERTa Applicability Domain (Completed, Approved)
+
+**What was done**: Built ChemBERTa-specific AD detector using CLS embedding space (768-dim)
+instead of descriptor-space fallback (2,150-dim). Created `model/hf/ad.py` with IsolationForest
+on training CLS embeddings. Refactored `ChemBERTaForPCSAFT` to expose `encode()` method.
+Updated registry (`embed()`, `predict_in_domain()`), evaluation (model-specific `_get_ad_labels()`),
+and serving (branches on `model_type` for AD). 10 new tests (138 total). 3 figures generated.
+
+**Key metrics**: In-domain m R² = 0.608 (vs 0.535 overall, +14% relative). 26.9% flagged OOD
+(vs ~21% for descriptor-space AD). σ shows weak AD separation. ε/k OOD R² noisy (97 molecules).
+RF and NN descriptor-space AD completely unchanged.
+
+**Decisions**: IsolationForest(contamination=0.05) on CLS embeddings — matches existing convention.
+Embedding-space AD is more architecturally consistent for transformer models. Higher OOD fraction
+is expected since learned representations are more selective than handcrafted descriptors.
+
+**Next action**: Branch step complete. All 9 steps + Step 04B finished.
+
+---
