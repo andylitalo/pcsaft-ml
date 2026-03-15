@@ -224,8 +224,11 @@ class TestAppModule:
             import portal.app  # noqa: F401
         except ImportError as e:
             pytest.fail(f"Failed to import portal.app: {e}")
-        except RuntimeError:
+        except (RuntimeError, Exception) as e:
             # Streamlit context error is expected when not running via streamlit run
+            # Also catch StreamlitAPIException which can happen with tabs
+            if "streamlit" not in str(type(e)).lower() and "context" not in str(e).lower():
+                pytest.fail(f"Unexpected error importing portal.app: {e}")
             pass
 
     @patch.dict("os.environ", {"PCSAFT_API_URL": "http://custom-api:9000"})

@@ -133,36 +133,33 @@ def render_prediction_page(api_client):
                 with col2:
                     st.markdown(f"**SMILES**: `{pred['smiles']}`")
 
-                    # OOD warning banner
-                    if pred.get("in_domain") is False:
-                        st.warning(
-                            "**Out-of-domain**: This molecule is outside the training "
-                            "distribution. Predictions may be unreliable. Treat results "
-                            "with extra caution.",
-                            icon="⚠️",
-                        )
-
-                    # Tanimoto similarity warning
+                    # Applicability domain status as color-coded bar
+                    in_domain = pred.get("in_domain", True)
                     tanimoto = pred.get("tanimoto_nn")
+
                     if tanimoto is not None:
-                        if tanimoto < 0.3:
-                            st.error(
-                                f"**Low similarity to training data** (Tanimoto={tanimoto:.3f}) — "
-                                "high prediction uncertainty expected.",
-                                icon="🚨",
+                        if tanimoto >= 0.4 and in_domain:
+                            st.success(
+                                f"**AD Status: In-Domain** (Tanimoto={tanimoto:.3f})",
+                                icon="✓",
                             )
-                        elif tanimoto < 0.4:
+                        elif tanimoto >= 0.3:
                             st.warning(
-                                f"**Moderate similarity to training data** "
-                                f"(Tanimoto={tanimoto:.3f}) — "
+                                f"**AD Status: Moderate** (Tanimoto={tanimoto:.3f}) — "
                                 "treat prediction with caution.",
                                 icon="⚠️",
                             )
                         else:
-                            st.success(
-                                f"**Good similarity to training data** (Tanimoto={tanimoto:.3f})",
-                                icon="✓",
+                            st.error(
+                                f"**AD Status: Out-of-Domain** (Tanimoto={tanimoto:.3f}) — "
+                                "high prediction uncertainty expected.",
+                                icon="🚨",
                             )
+                    elif not in_domain:
+                        st.warning(
+                            "**AD Status: Out-of-Domain** — predictions may be unreliable.",
+                            icon="⚠️",
+                        )
 
                     # Association warning
                     if pred.get("is_associating", False):
@@ -181,6 +178,10 @@ def render_prediction_page(api_client):
                     }
                     ref_values = {"m": ref_m, "sigma": ref_sigma, "epsilon_k": ref_eps}
 
+                    # Get uncertainty if available
+                    unc = pred.get("uncertainty", {})
+                    has_uncertainty = bool(unc)
+
                     metric_cols = st.columns(3)
                     for idx, param in enumerate(["m", "sigma", "epsilon_k"]):
                         pred_value = pred.get(param)
@@ -188,21 +189,28 @@ def render_prediction_page(api_client):
 
                         if pred_value is not None:
                             pct_diff = abs(pred_value - ref_value) / ref_value * 100
+
+                            # Format value with uncertainty if available
+                            if has_uncertainty:
+                                unc_key = f"{param}_std"
+                                unc_val = unc.get(unc_key, 0)
+                                if param == "epsilon_k":
+                                    value_str = f"{pred_value:.2f} ± {unc_val:.2f}"
+                                else:
+                                    value_str = f"{pred_value:.4f} ± {unc_val:.4f}"
+                            else:
+                                if param == "epsilon_k":
+                                    value_str = f"{pred_value:.2f}"
+                                else:
+                                    value_str = f"{pred_value:.4f}"
+
                             # delta_color="inverse" means smaller is better (closer to reference)
                             metric_cols[idx].metric(
                                 label=param_names[param],
-                                value=f"{pred_value:.4f}",
+                                value=value_str,
                                 delta=f"{pct_diff:.1f}% diff from {ref_name}",
                                 delta_color="inverse",
                             )
-
-                    # Uncertainty estimates if available
-                    if pred.get("uncertainty"):
-                        with st.expander("Uncertainty estimates"):
-                            unc = pred["uncertainty"]
-                            st.write(f"m ± {unc.get('m_std', 0):.4f}")
-                            st.write(f"σ ± {unc.get('sigma_std', 0):.4f}")
-                            st.write(f"ε/k ± {unc.get('epsilon_k_std', 0):.2f}")
 
         # Offer CSV download of results
         if predictions:
