@@ -65,6 +65,17 @@ class DataSubmission(BaseModel):
     source: str = Field(description="Publication DOI or lab identifier")
 
 
+class ReferenceMolecule(BaseModel):
+    """Reference molecule with known PC-SAFT parameters."""
+
+    name: str
+    smiles: str
+    m: float
+    sigma: float
+    epsilon_k: float
+    source: str = "Esper"
+
+
 class HealthResponse(BaseModel):
     """Health-check response for liveness/readiness probes."""
 

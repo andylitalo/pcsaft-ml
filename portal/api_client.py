@@ -125,6 +125,23 @@ class PCSAFTClient:
             logger.error("Health check failed for %s", self.base_url)
             return {"status": "unreachable", "model_loaded": False}
 
+    def get_reference_molecules(self) -> list[dict]:
+        """Get list of reference molecules with known PC-SAFT parameters.
+
+        Returns
+        -------
+        list[dict]
+            List of reference molecules with keys: name, smiles, m, sigma, epsilon_k, source.
+            Returns empty list on error.
+        """
+        try:
+            resp = requests.get(f"{self.base_url}/reference-molecules", timeout=5)
+            resp.raise_for_status()
+            return resp.json()
+        except Exception:
+            logger.error("Failed to fetch reference molecules from %s", self.base_url)
+            return []
+
     def get_model_info(self) -> dict:
         """Get model information and metrics.
 
