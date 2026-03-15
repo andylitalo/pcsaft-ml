@@ -89,8 +89,33 @@ def _compute_test_features(smiles_list: list[str]) -> np.ndarray:
 # AD analysis
 # ---------------------------------------------------------------------------
 
-def _get_ad_labels(smiles_list: list[str]) -> np.ndarray | None:
-    """Return boolean array (True=in-domain) or None if AD model unavailable."""
+def _get_ad_labels(smiles_list: list[str], model_name: str | None = None) -> np.ndarray | None:
+    """Return boolean array (True=in-domain) or None if AD model unavailable.
+
+    Parameters
+    ----------
+    smiles_list : list[str]
+        List of SMILES strings.
+    model_name : str | None
+        Model name. If "chemberta", use ChemBERTa embedding-space AD.
+        Otherwise, use descriptor-space AD.
+
+    Returns
+    -------
+    np.ndarray | None
+        Boolean array or None if AD model unavailable.
+    """
+    # ChemBERTa uses its own embedding-space AD
+    if model_name == "chemberta":
+        try:
+            model = get_model("chemberta")
+            model.load()
+            return model.predict_in_domain(smiles_list)
+        except Exception:
+            logger.warning("ChemBERTa AD model unavailable; skipping AD analysis")
+            return None
+
+    # RF, NN, and GC-PCSAFT use descriptor-space AD
     ad_path = SAVED_DIR / "ad_model.joblib"
     if not ad_path.exists():
         return None
@@ -136,7 +161,7 @@ def _plot_parity(
     all_results: dict,
     test_df: pd.DataFrame,
     model_names: list[str],
-    ad_labels: np.ndarray | None,
+    ad_labels_dict: dict[str, np.ndarray | None],
 ) -> None:
     """Grid: rows=models, cols=targets. Color by AD status."""
     n_models = len(model_names)
@@ -146,6 +171,7 @@ def _plot_parity(
 
     for i, mname in enumerate(model_names):
         preds = all_results[mname]["predictions"]
+        ad_labels = ad_labels_dict.get(mname)
         for j, target in enumerate(TARGETS):
             ax = axes[i, j]
             y_true = test_df[target].values
@@ -392,16 +418,9 @@ def evaluate(model_names: list[str] | None = None) -> pd.DataFrame:
     print(f"Evaluating {len(model_names)} model(s) on {len(test_df)} test molecules")
     print(f"Models: {', '.join(model_names)}\n")
 
-    # AD labels
-    ad_labels = _get_ad_labels(smiles_list)
-    if ad_labels is not None:
-        n_in = ad_labels.sum()
-        n_ood = len(ad_labels) - n_in
-        pct = n_ood / len(ad_labels) * 100
-        print(f"AD analysis: {n_in} in-domain, {n_ood} OOD ({pct:.1f}% flagged)\n")
-
     # Collect results
     all_results: dict[str, dict] = {}
+    ad_labels_dict: dict[str, np.ndarray | None] = {}
     rows: list[dict] = []
 
     for mname in model_names:
@@ -412,6 +431,15 @@ def evaluate(model_names: list[str] | None = None) -> pd.DataFrame:
         except Exception as exc:
             print(f"  SKIP: {exc}")
             continue
+
+        # Get model-specific AD labels
+        ad_labels = _get_ad_labels(smiles_list, model_name=mname)
+        ad_labels_dict[mname] = ad_labels
+        if ad_labels is not None:
+            n_in = ad_labels.sum()
+            n_ood = len(ad_labels) - n_in
+            pct = n_ood / len(ad_labels) * 100
+            print(f"  AD analysis: {n_in} in-domain, {n_ood} OOD ({pct:.1f}% flagged)")
 
         # Point predictions
         preds = model.predict(smiles_list)
@@ -510,7 +538,7 @@ def evaluate(model_names: list[str] | None = None) -> pd.DataFrame:
     if evaluated_models:
         print("\nGenerating figures...")
         FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-        _plot_parity(all_results, test_df, evaluated_models, ad_labels)
+        _plot_parity(all_results, test_df, evaluated_models, ad_labels_dict)
         _plot_residuals(all_results, test_df, evaluated_models)
         _plot_learning_curves()
         _plot_uncertainty_calibration(all_results, test_df, evaluated_models)

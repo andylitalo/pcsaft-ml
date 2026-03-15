@@ -356,3 +356,52 @@ class ChemBERTaModel:
             info = self._target_scalers[target]
             output[f"{target}_std"] = raw[f"{target}_std"] * info["std"]
         return output
+
+    def embed(self, smiles_list: list[str]) -> np.ndarray:
+        """Return CLS embeddings for a list of SMILES.
+
+        Parameters
+        ----------
+        smiles_list : list[str]
+            List of SMILES strings.
+
+        Returns
+        -------
+        np.ndarray
+            CLS embeddings of shape ``(n_molecules, hidden_size)``.
+        """
+        if self._model is None:
+            self.load()
+        encodings = self._tokenize(smiles_list)
+        self._model.eval()
+        with torch.no_grad():
+            emb = self._model.encode(
+                input_ids=encodings["input_ids"],
+                attention_mask=encodings["attention_mask"],
+            )
+        return emb.cpu().numpy()
+
+    def predict_in_domain(self, smiles_list: list[str]) -> np.ndarray:
+        """Return boolean array using ChemBERTa embedding-space AD.
+
+        Parameters
+        ----------
+        smiles_list : list[str]
+            List of SMILES strings.
+
+        Returns
+        -------
+        np.ndarray
+            Boolean array of shape ``(n_molecules,)``. ``True`` means
+            in-domain, ``False`` means out-of-domain.
+        """
+        try:
+            from model.hf.ad import load_chemberta_ad_model, predict_chemberta_ad
+
+            ad_model = load_chemberta_ad_model()
+            embeddings = self.embed(smiles_list)
+            return predict_chemberta_ad(ad_model, embeddings)
+        except FileNotFoundError:
+            # Fallback: mark all as in-domain if AD artifact missing
+            logger.warning("ChemBERTa AD model not found; marking all as in-domain")
+            return np.ones(len(smiles_list), dtype=bool)

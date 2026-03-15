@@ -15,18 +15,21 @@ _AD_AVAILABLE = False
 
 
 def _load_ad_model():
-    """Try to load the Isolation Forest AD model; return None on failure."""
+    """Load descriptor-space Isolation Forest AD model; return None on failure."""
     global _AD_MODEL, _AD_AVAILABLE
     try:
         from model.nn.ad import load_ad_model
 
         _AD_MODEL = load_ad_model()
         _AD_AVAILABLE = True
-        logger.info("AD model loaded successfully")
+        logger.info("Descriptor-space AD model loaded successfully")
     except (FileNotFoundError, ImportError):
         _AD_MODEL = None
         _AD_AVAILABLE = False
-        logger.info("AD model not available; all predictions will be marked in-domain")
+        logger.info(
+            "Descriptor-space AD model not available; "
+            "will use model-specific AD if available"
+        )
 
 
 class ModelServer:
@@ -36,7 +39,11 @@ class ModelServer:
         self.model_type = model_type
         self._model = get_model(model_type)
         self._model.load()
-        _load_ad_model()
+
+        # Load descriptor-space AD for RF and NN
+        if model_type in {"rf", "nn"}:
+            _load_ad_model()
+
         self._warmup()
         logger.info("ModelServer ready: model_type=%s", model_type)
 
@@ -62,9 +69,16 @@ class ModelServer:
             logger.exception("predict_with_uncertainty failed, falling back to predict")
             result = self._model.predict(smiles_list)
 
-        # AD check (requires feature computation; best-effort)
+        # AD check (model-specific)
         in_domain = np.ones(len(smiles_list), dtype=bool)
-        if _AD_AVAILABLE and _AD_MODEL is not None:
+        if self.model_type == "chemberta":
+            # Use ChemBERTa embedding-space AD
+            try:
+                in_domain = self._model.predict_in_domain(smiles_list)
+            except Exception:
+                logger.exception("ChemBERTa AD check failed; marking all as in-domain")
+        elif self.model_type in {"rf", "nn"} and _AD_AVAILABLE and _AD_MODEL is not None:
+            # Use descriptor-space AD for RF and NN
             try:
                 from model.registry import _compute_features
 
@@ -77,7 +91,7 @@ class ModelServer:
                     else:
                         in_domain[i] = False
             except Exception:
-                logger.exception("AD check failed; marking all as in-domain")
+                logger.exception("Descriptor-space AD check failed; marking all as in-domain")
 
         # Association check
         from screening.filters import is_associating

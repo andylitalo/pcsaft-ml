@@ -53,6 +53,28 @@ class ChemBERTaForPCSAFT(nn.Module):
             nn.Linear(64, 3),  # m, sigma, epsilon_k
         )
 
+    def encode(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        """Extract [CLS] embeddings without the regression head.
+
+        Parameters
+        ----------
+        input_ids : torch.Tensor
+            Token IDs of shape ``(batch, seq_len)``.
+        attention_mask : torch.Tensor
+            Attention mask of shape ``(batch, seq_len)``.
+
+        Returns
+        -------
+        torch.Tensor
+            [CLS] token embeddings of shape ``(batch, hidden_size)``.
+        """
+        outputs = self.encoder(input_ids=input_ids, attention_mask=attention_mask)
+        return outputs.last_hidden_state[:, 0, :]
+
     def forward(
         self,
         input_ids: torch.Tensor,
@@ -76,9 +98,7 @@ class ChemBERTaForPCSAFT(nn.Module):
             ``{"loss": ..., "predictions": ...}`` where predictions has
             shape ``(batch, 3)`` corresponding to (m, sigma, epsilon_k).
         """
-        outputs = self.encoder(input_ids=input_ids, attention_mask=attention_mask)
-        # Use [CLS] token representation (first token)
-        cls_output = outputs.last_hidden_state[:, 0, :]
+        cls_output = self.encode(input_ids, attention_mask)
         predictions = self.regression_head(cls_output)
 
         loss = None
@@ -117,8 +137,9 @@ class ChemBERTaForPCSAFT(nn.Module):
 
         with torch.no_grad():
             for _ in range(n_forward):
-                result = self.forward(input_ids, attention_mask)
-                all_preds.append(result["predictions"].cpu().numpy())
+                cls_output = self.encode(input_ids, attention_mask)
+                predictions = self.regression_head(cls_output)
+                all_preds.append(predictions.cpu().numpy())
 
         self.eval()  # Restore eval mode
 

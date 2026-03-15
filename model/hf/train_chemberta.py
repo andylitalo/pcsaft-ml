@@ -220,6 +220,10 @@ def train_chemberta(
     test_df.to_csv(SAVED_DIR / "test_set.csv", index=False)
     logger.info("Saved test set (%d molecules)", len(test_df))
 
+    # --- Fit applicability domain detector on training embeddings ---
+    logger.info("Fitting ChemBERTa applicability domain detector...")
+    _fit_chemberta_ad(model, train_dataset, source)
+
     logger.info("ChemBERTa training complete. Artifacts saved to %s", CHEMBERTA_DIR)
 
 
@@ -248,6 +252,56 @@ def _save_training_history(log_history: list[dict]) -> None:
     history_path = CHEMBERTA_DIR / "training_history.json"
     history_path.write_text(json.dumps(history, indent=2) + "\n")
     logger.info("Saved training history to %s", history_path)
+
+
+def _fit_chemberta_ad(
+    model: ChemBERTaForPCSAFT,
+    train_dataset: PCSAFTSmilesDataset,
+    source: str,
+) -> None:
+    """Fit applicability domain detector on training CLS embeddings.
+
+    Parameters
+    ----------
+    model : ChemBERTaForPCSAFT
+        Fine-tuned model in eval mode.
+    train_dataset : PCSAFTSmilesDataset
+        Training dataset with tokenized SMILES.
+    source : str
+        Data source name for metadata.
+    """
+    from model.hf.ad import fit_chemberta_ad
+
+    model.eval()
+    batch_size = 64
+    all_embeddings = []
+
+    with torch.no_grad():
+        for i in range(0, len(train_dataset), batch_size):
+            batch = [train_dataset[j] for j in range(i, min(i + batch_size, len(train_dataset)))]
+            input_ids = torch.stack([b["input_ids"] for b in batch])
+            attention_mask = torch.stack([b["attention_mask"] for b in batch])
+
+            cls_embeddings = model.encode(input_ids, attention_mask)
+            all_embeddings.append(cls_embeddings.cpu().numpy())
+
+    train_embeddings = np.vstack(all_embeddings)
+    n_emb, emb_dim = train_embeddings.shape
+    logger.info("Extracted %d CLS embeddings (dim=%d)", n_emb, emb_dim)
+
+    # Fit AD model
+    fit_chemberta_ad(train_embeddings, contamination=0.05)
+
+    # Update metadata with correct source
+    metadata_path = CHEMBERTA_DIR / "chemberta_ad_metadata.json"
+    metadata = json.loads(metadata_path.read_text())
+    metadata["train_source"] = source
+    metadata_path.write_text(json.dumps(metadata, indent=2) + "\n")
+
+    # Optionally save embeddings for visualization
+    embeddings_path = CHEMBERTA_DIR / "train_cls_embeddings.npy"
+    np.save(embeddings_path, train_embeddings)
+    logger.info("Saved training embeddings to %s", embeddings_path)
 
 
 if __name__ == "__main__":

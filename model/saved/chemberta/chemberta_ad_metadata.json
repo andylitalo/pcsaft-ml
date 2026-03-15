@@ -1,0 +1,7 @@
+{
+  "detector_type": "IsolationForest",
+  "contamination": 0.2,
+  "embedding_dim": 768,
+  "n_train_molecules": 100,
+  "train_source": "esper"
+}
