@@ -1,0 +1,124 @@
+# pcsaft-predict Package Manifest
+
+## Version: 1.0.0
+
+## Package Contents
+
+### Core Modules
+- __init__.py          - Public API exports
+- _registry.py         - Model registry and high-level API
+- _features.py         - Feature computation (Morgan FP + RDKit descriptors)
+- _rf.py               - Random Forest model wrapper
+- _ad.py               - Applicability domain (Tanimoto NN)
+- _thermo.py           - Thermodynamic properties (optional, requires teqp)
+- _weights.py          - Weight cache management
+
+### Documentation
+- README.md            - User-facing documentation
+- pyproject.toml       - Package metadata and dependencies
+
+### Type Checking
+- py.typed             - PEP 561 marker for type hints
+
+### Data
+- data/.gitkeep        - Placeholder for data directory
+
+## Required Model Files (not included in package)
+
+The following files must be present in the cache directory:
+
+### RF Models (required)
+- rf_m.joblib          - Random Forest for m parameter
+- rf_sigma.joblib      - Random Forest for sigma parameter
+- rf_epsilon_k.joblib  - Random Forest for epsilon_k parameter
+
+### Feature Configuration (required)
+- feature_names.joblib - List of feature names from training
+- rdkit_scaler.joblib  - StandardScaler for RDKit descriptors
+
+### Applicability Domain (optional)
+- tanimoto_ad.joblib   - Precomputed training set fingerprints for AD
+
+## Dependencies
+
+### Core Dependencies
+- numpy>=1.24,<2.0
+- pandas>=2.0,<3.0
+- rdkit>=2023.3.1
+- scikit-learn>=1.3,<2.0
+- joblib>=1.3,<2.0
+
+### Optional Dependencies
+- scipy>=1.11,<2.0 (for thermodynamic properties)
+- teqp>=0.24.0 (for thermodynamic properties)
+
+### Development Dependencies
+- pytest>=7.4
+- ruff>=0.1
+
+## Installation
+
+### From Source
+```bash
+cd pcsaft_predict
+pip install -e .
+```
+
+### With Optional Dependencies
+```bash
+pip install -e .[thermo]  # thermodynamic properties
+pip install -e .[dev]     # development tools
+```
+
+## Testing
+
+Run the test suite:
+```bash
+pytest ../tests/test_pcsaft_predict.py -v
+```
+
+All 7 tests should pass:
+- test_predict_single_smiles
+- test_predict_batch
+- test_predict_with_uncertainty
+- test_list_models
+- test_invalid_smiles
+- test_predict_rf_model
+- test_ad_flag_present
+
+## Quality Checks
+
+### Linting
+```bash
+ruff check .
+```
+
+Should pass with 0 errors.
+
+## Cache Directory Resolution
+
+The package looks for model weights in the following order:
+
+1. `$PCSAFT_PREDICT_CACHE_DIR` (if set)
+2. `../model/saved/` (if package is in repo)
+3. `~/.cache/pcsaft_predict/` (default fallback)
+
+## API Surface
+
+### Public Functions
+- `predict(smiles, model="rf")` -> DataFrame
+- `predict_with_uncertainty(smiles, model="rf", n_forward=30)` -> DataFrame
+- `list_models()` -> list[str]
+- `load_model(name)` -> model instance
+
+### Public Modules
+- `pcsaft_predict._thermo` (optional thermodynamic calculations)
+
+## Version History
+
+### 1.0.0 (2024-03-15)
+- Initial release
+- RF model support
+- Tanimoto AD checking
+- Optional thermodynamic properties
+- Full test coverage
