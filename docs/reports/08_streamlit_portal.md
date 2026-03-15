@@ -28,6 +28,8 @@ The portal is structured as a modular Streamlit application with three main tabs
 - **Training data stats**: Current training set size
 - **Fallback mode**: Hardcoded baseline metrics displayed when API is unavailable
 
+> **Uncertainty note**: All R², MAE, and RMSE values in this report are point estimates on a single holdout split. 95% bootstrap confidence intervals are available via `python -m model.evaluate --bootstrap` and saved to `model/saved/comparison_metrics.csv` with `_lo`/`_hi` suffix columns.
+
 ## Component Details
 
 ### API Client (`portal/api_client.py`)

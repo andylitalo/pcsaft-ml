@@ -14,6 +14,8 @@ Four new metrics added to the evaluation harness: MARE (Mean Absolute Relative E
 | σ (Å) | 0.494 | 0.579 | −1.163 | 0.130 | 0.049 | 14.5% | 35.8% | 358 |
 | ε/k (K) | 44.62 | 63.50 | −0.037 | 0.207 | 0.177 | 23.7% | 42.2% | 358 |
 
+> **Uncertainty note**: All R², MAE, and RMSE values in this report are point estimates on a single holdout split. 95% bootstrap confidence intervals are available via `python -m model.evaluate --bootstrap` and saved to `model/saved/comparison_metrics.csv` with `_lo`/`_hi` suffix columns.
+
 ### RF (Combined Morgan+RDKit)
 
 | Parameter | MAE | RMSE | R² | MARE | CCC | Cov@5% | Cov@10% | n |

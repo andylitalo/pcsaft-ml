@@ -28,6 +28,8 @@ Step 04B implements a ChemBERTa-specific applicability domain (AD) detector usin
 | σ         | 0.226         | 0.349          | 0.253        | 0.249          | 0.207    | 26.9%        |
 | ε/k       | 31.2          | 53.7           | 0.265        | 0.197          | 0.436    | 26.9%        |
 
+> **Uncertainty note**: All R², MAE, and RMSE values in this report are point estimates on a single holdout split. 95% bootstrap confidence intervals are available via `python -m model.evaluate --bootstrap` and saved to `model/saved/comparison_metrics.csv` with `_lo`/`_hi` suffix columns.
+
 ### Interpretation
 
 - **In-domain performance**: ChemBERTa's in-domain R² for `m` (0.608) is notably better than overall (0.535), confirming that the AD detector successfully identifies a training-like subset where the model performs well.

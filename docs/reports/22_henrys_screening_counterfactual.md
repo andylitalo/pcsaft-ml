@@ -42,16 +42,18 @@ Batch computation of 946 molecules took ~10 minutes on a single core. All comput
 
 ### 22.1 Henry's Constant Batch Results
 
-| Statistic | H/H(ref) |
-|-----------|----------|
-| Min | 0.569 |
-| 25% | 0.679 |
-| Median | 0.794 |
-| 75% | 0.944 |
-| Max | 1.348 |
-| Mean | 0.823 |
+| Statistic | H/H(ref) point estimate | With tree-only 95% CI |
+|-----------|-------------------------|----------------------|
+| Min | 0.569 | See `uncertainty_propagated.csv` |
+| 25% | 0.679 | |
+| Median | 0.794 | |
+| 75% | 0.944 | |
+| Max | 1.348 | |
+| Mean | 0.823 ± SE | |
 
-**All 946 VP-passing candidates have H ratios in the range [0.5, 2.0]**. This is a remarkable result that validates the screening strategy:
+Note: All values above are point estimates from RF mean predictions at k_ij=0. Per-molecule 95% CIs from per-tree propagation (jointly varying m, σ, ε/k) and k_ij sweep are in `model/saved/uncertainty_propagated.csv`. The fraction of candidates with H_ratio ∈ [0.5, 2.0] is 100% [95% Wilson CI: 99.6%, 100%] at the point estimates, but some candidates' CIs may extend outside this band.
+
+**All 946 VP-passing candidates have H ratios in the range [0.5, 2.0]** at the RF mean prediction with k_ij=0. This is a remarkable result that validates the screening strategy:
 
 - The systematic chemical space (from Step 12) was constrained to Cl/F-substituted C4-C6 cyclic molecules
 - Within that space, VP proximity (0.5 ≤ VP_ratio ≤ 1.5) selects molecules whose PC-SAFT parameters produce similar cross-interaction energies with n-hexane
@@ -135,6 +137,8 @@ A ±10 K error in predicted ε/k produces a ±78% uncertainty in H. This is larg
 
 For comparison, commercial HFOs have H/H(ref) = 10⁴–10⁷. The 78% uncertainty on our candidates (H/H(ref) ≈ 0.8) gives a range of [0.4, 1.4], still within the target [0.5, 2.0].
 
+**Improvement**: The per-tree propagation approach in `model/uncertainty.py` replaces this ±10 K univariate sensitivity with a proper joint propagation of all three parameters (m, σ, ε/k) through teqp, using each RF tree's correlated prediction. This produces tighter, more realistic CIs than the ε/k-only perturbation. Per-molecule 95% CIs are in `model/saved/uncertainty_propagated.csv`.
+
 #### Binary Interaction Parameter Sensitivity
 
 For k_ij ± 0.05 (typical range for hydrocarbon/fluorocarbon mixtures):
@@ -187,9 +191,9 @@ These are heavily fluorinated chloro-olefins with C4-C5 skeletons. The H/H(ref) 
 
 3. **Polyol modeling requires association parameters**: The 3-parameter PC-SAFT cannot model high-MW polyol at 298 K. Future work should use associating SAFT (PC-SAFT + association) or measure k_ij experimentally with a proxy solvent.
 
-4. **Parameter uncertainty is manageable**: ±10 K uncertainty in ε/k produces ±78% uncertainty in H, but does not change order-of-magnitude ranking. Molecules with H/H(ref) ≈ 1 remain << 10 even with prediction errors.
+4. **Parameter uncertainty is manageable**: ±10 K univariate uncertainty in ε/k produces ±78% uncertainty in H, but does not change order-of-magnitude ranking. The improved per-tree propagation (`model/uncertainty.py`) jointly varies (m, σ, ε/k) for tighter CIs — see `uncertainty_propagated.csv`.
 
-5. **Binary interaction parameters are critical**: k_ij ± 0.05 produces ±167% uncertainty in H. Absolute H values require experimental k_ij data, but relative ranking is robust for structurally similar molecules.
+5. **Binary interaction parameters are critical**: k_ij ± 0.05 produces ±167% uncertainty in H. Absolute H values require experimental k_ij data, but relative ranking is robust for structurally similar molecules. Combined tree + k_ij 95% CIs are now available per molecule in `uncertainty_propagated.csv`.
 
 6. **Top candidates are moderately outside training domain**: Median Tanimoto = 0.33, max = 0.62. The RF model is extrapolating. Top candidates (Tanimoto ≥ 0.40) are more credible for experimental validation.
 

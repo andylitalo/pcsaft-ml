@@ -85,6 +85,8 @@ data:
 
 **Key decision**: `PCSAFT_MODEL_TYPE: "rf"` (Random Forest) is the default, not `nn`, because RF achieved the best test R² on the key parameters (m: 0.61, sigma: 0.32, epsilon_k: 0.27) compared to the NN baseline.
 
+> **Uncertainty note**: All R², MAE, and RMSE values in this report are point estimates on a single holdout split. 95% bootstrap confidence intervals are available via `python -m model.evaluate --bootstrap` and saved to `model/saved/comparison_metrics.csv` with `_lo`/`_hi` suffix columns.
+
 The ConfigMap is injected into pods via `envFrom: configMapRef`, and `serving/config.py` uses `pydantic-settings` to read these with the `PCSAFT_` prefix:
 
 ```python

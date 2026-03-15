@@ -12,6 +12,8 @@ A multi-task neural network (PCSAFTNet) was trained on the Esper PC-SAFT dataset
 | sigma (A) | 0.244 | 0.395 | 0.04 | 1,440 | 361 |
 | epsilon_k (K) | 33.7 | 59.6 | 0.09 | 1,440 | 361 |
 
+> **Uncertainty note**: All R², MAE, and RMSE values in this report are point estimates on a single holdout split. 95% bootstrap confidence intervals are available via `python -m model.evaluate --bootstrap` and saved to `model/saved/comparison_metrics.csv` with `_lo`/`_hi` suffix columns.
+
 The NN underperforms the RF baseline across all three targets. This is a significant and informative result: with only 1,440 training samples and 2,218 features, the small-data regime favors the RF's implicit feature selection and ensemble averaging over the NN's gradient-based optimization. The NN struggles particularly with sigma (R2=0.04) and epsilon_k (R2=0.09), where signal is weak relative to the high-dimensional input.
 
 ## Comparison to Baseline

@@ -12,6 +12,8 @@ Training used HuggingFace Trainer with AdamW (lr=2e-5, weight_decay=0.01, warmup
 | sigma (A) | 0.226 | 0.349 | 0.25 | 1,440 | 361 |
 | epsilon_k (K) | 31.2 | 53.7 | 0.27 | 1,440 | 361 |
 
+> **Uncertainty note**: All R², MAE, and RMSE values in this report are point estimates on a single holdout split. 95% bootstrap confidence intervals are available via `python -m model.evaluate --bootstrap` and saved to `model/saved/comparison_metrics.csv` with `_lo`/`_hi` suffix columns.
+
 ChemBERTa is the clear second-best model behind RF on all three parameters. On m, ChemBERTa (R2=0.53) substantially outperforms the NN (R2=0.47) and approaches RF (R2=0.62). On sigma and epsilon_k, ChemBERTa (R2=0.25, 0.27) significantly outperforms the NN (R2=0.11, 0.14) and narrows the gap with RF (R2=0.35, 0.33). The improvement over the NN is notable given that ChemBERTa consumes raw SMILES without any feature engineering, while the NN relies on 2,218 hand-crafted Morgan + RDKit features.
 
 ## Comparison to Baseline (Four-Way)

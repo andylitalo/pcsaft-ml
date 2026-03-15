@@ -4,6 +4,8 @@
 
 The PC-SAFT prediction pipeline is now exposed as a REST API via FastAPI. The best-performing Random Forest model (R2: m=0.62, sigma=0.35, epsilon_k=0.33) is loaded at startup and serves predictions over HTTP. The API includes uncertainty quantification (RF tree disagreement), applicability domain checking (Isolation Forest), and association-site flagging. A `/submit-data` endpoint allows researchers to contribute experimental measurements for future retraining.
 
+> **Uncertainty note**: All R², MAE, and RMSE values in this report are point estimates on a single holdout split. 95% bootstrap confidence intervals are available via `python -m model.evaluate --bootstrap` and saved to `model/saved/comparison_metrics.csv` with `_lo`/`_hi` suffix columns.
+
 ## API Endpoints
 
 | Method | Path | Description | Status Codes |

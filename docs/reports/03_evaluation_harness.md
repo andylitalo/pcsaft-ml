@@ -19,6 +19,7 @@ A unified evaluation harness was built to compare all three PC-SAFT prediction m
 | NN         | sigma (A)     | 0.238 | 0.381 | 0.11      | 0.062              | 1,440 | 361  |
 | NN         | epsilon_k (K) | 32.9  | 58.0  | 0.14      | 8.77               | 1,440 | 361  |
 
+> **Uncertainty note**: All R², MAE, and RMSE values in this report are point estimates on a single holdout split. 95% bootstrap confidence intervals are available via `python -m model.evaluate --bootstrap` and saved to `model/saved/comparison_metrics.csv` with `_lo`/`_hi` suffix columns.
 
 Note: GC-PC-SAFT has 358 valid predictions (3 molecules with unrecognized functional groups produce NaN and are excluded). GC-PC-SAFT has no intrinsic uncertainty estimate.
 

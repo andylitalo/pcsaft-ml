@@ -14,6 +14,8 @@ All models use Random Forest with 100 trees, stratified 80/20 train/test split o
 | Morgan + RDKit + GC-PC-SAFT | 0.624 | 0.357 | 0.293 | 0.586 | 0.186 | 27.2 |
 | GC-PC-SAFT only (reference) | 0.516 | 0.229 | 0.143 | 0.770 | 0.230 | 36.3 |
 
+> **Uncertainty note**: All R², MAE, and RMSE values in this report are point estimates on a single holdout split. 95% bootstrap confidence intervals are available via `python -m model.evaluate --bootstrap` and saved to `model/saved/comparison_metrics.csv` with `_lo`/`_hi` suffix columns.
+
 ### Delta Analysis: Augmented vs Baseline
 
 | Parameter | ΔR² | ΔMAE |

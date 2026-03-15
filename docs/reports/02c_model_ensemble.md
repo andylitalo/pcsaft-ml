@@ -18,6 +18,8 @@ w_i = 1 / σ_i²
 | NN | 0.400 | 0.028 | 0.093 | 0.827 | 0.245 | 33.84 | 0.295 | 0.062 | 8.80 |
 | ChemBERTa | 0.539 | 0.271 | 0.270 | 0.770 | 0.222 | 30.83 | 0.268 | 0.053 | 7.68 |
 
+> **Uncertainty note**: All R², MAE, and RMSE values in this report are point estimates on a single holdout split. 95% bootstrap confidence intervals are available via `python -m model.evaluate --bootstrap` and saved to `model/saved/comparison_metrics.csv` with `_lo`/`_hi` suffix columns.
+
 ### Ensemble Results (RF + NN, Inverse-Variance Weighted)
 
 | Method | R²(m) | R²(σ) | R²(ε/k) | MAE(m) | MAE(σ) | MAE(ε/k) |

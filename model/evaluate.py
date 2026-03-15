@@ -8,9 +8,11 @@ held-out test set and produces:
   - Residual distribution plot (grid: models x targets)
   - NN learning curves (if nn_history.json exists)
   - Uncertainty calibration plot (for models with UQ)
+  - Bootstrap confidence intervals on all metrics (with --bootstrap)
 
 Usage:
     python -m model.evaluate --models gc_pcsaft rf nn
+    python -m model.evaluate --models rf --bootstrap   # add 95% CIs
 """
 
 import argparse
@@ -655,13 +657,21 @@ def compute_rf_cv_q2(n_folds: int = 5) -> dict[str, dict[str, float]]:
 # Main evaluation logic
 # ---------------------------------------------------------------------------
 
-def evaluate(model_names: list[str] | None = None) -> pd.DataFrame:
+def evaluate(
+    model_names: list[str] | None = None,
+    bootstrap: bool = False,
+    n_boot: int = 2000,
+) -> pd.DataFrame:
     """Run unified evaluation across requested models.
 
     Parameters
     ----------
     model_names : list[str] | None
         Names of models to evaluate. Defaults to all registered models.
+    bootstrap : bool
+        If True, compute bootstrap 95% CIs for R², MAE, and RMSE.
+    n_boot : int
+        Number of bootstrap resamples (default 2000).
 
     Returns
     -------
@@ -736,6 +746,23 @@ def evaluate(model_names: list[str] | None = None) -> pd.DataFrame:
                 "n": metrics["n"],
             }
 
+            # Bootstrap CIs
+            if bootstrap:
+                from model.uncertainty import bootstrap_metric_ci
+
+                for metric_name, metric_fn in [
+                    ("r2", r2_score),
+                    ("mae", mean_absolute_error),
+                    ("rmse", lambda yt, yp: float(np.sqrt(mean_squared_error(yt, yp)))),
+                ]:
+                    ci = bootstrap_metric_ci(
+                        y_true, y_pred, metric_fn,
+                        n_boot=n_boot, ci=0.95,
+                    )
+                    row[f"{metric_name}_lo"] = ci["ci_lo"]
+                    row[f"{metric_name}_hi"] = ci["ci_hi"]
+                    row[f"{metric_name}_boot_std"] = ci["std"]
+
             # Uncertainty: mean std and approximate 95% CI coverage
             if uq is not None and f"{target}_std" in uq:
                 std_vals = uq[f"{target}_std"]
@@ -789,12 +816,18 @@ def evaluate(model_names: list[str] | None = None) -> pd.DataFrame:
                     f"  CI95_cov={row['ci95_coverage']:.3f}"
                     f"  CI95_width={row['mean_ci95_width']:.3f}"
                 )
+            boot_str = ""
+            if bootstrap and "r2_lo" in row:
+                boot_str = (
+                    f"\n{'':14s}  R²_95CI=[{row['r2_lo']:.4f}, {row['r2_hi']:.4f}]"
+                    f"  MAE_95CI=[{row['mae_lo']:.4f}, {row['mae_hi']:.4f}]"
+                )
             print(
                 f"  {target:10s}  MAE={metrics['mae']:.4f}  "
                 f"RMSE={metrics['rmse']:.4f}  R\u00b2={metrics['r2']:.4f}  "
                 f"MARE={metrics['mare']:.3f}  CCC={metrics['ccc']:.4f}  "
                 f"cov5%={metrics['coverage_5pct']:.3f}  cov10%={metrics['coverage_10pct']:.3f}"
-                f"{ci_str}"
+                f"{ci_str}{boot_str}"
             )
         print()
 
@@ -831,9 +864,17 @@ def evaluate(model_names: list[str] | None = None) -> pd.DataFrame:
                     f"  CI95_cov={r['ci95_coverage']:.3f}"
                     f"  CI95_width={r['mean_ci95_width']:.3f}"
                 )
+            boot_str = ""
+            if "r2_lo" in r and not np.isnan(r.get("r2_lo", np.nan)):
+                boot_str = (
+                    f"\n{'':14s}  R²_95CI=[{r['r2_lo']:.4f}, {r['r2_hi']:.4f}]"
+                    f"  MAE_95CI=[{r['mae_lo']:.4f}, {r['mae_hi']:.4f}]"
+                    f"  RMSE_95CI=[{r['rmse_lo']:.4f}, {r['rmse_hi']:.4f}]"
+                )
             print(
                 f"    {t:10s}  MAE={r['mae']:.4f}  RMSE={r['rmse']:.4f}  "
                 f"R\u00b2={r['r2']:.4f}{mare_str}{ccc_str}{cov_str}{std_str}{ci_str}{ad_str}"
+                f"{boot_str}"
             )
     print("\n" + "=" * 100)
 
@@ -868,6 +909,22 @@ def main():
              f"Available: {list_models()}",
     )
     parser.add_argument(
+        "--bootstrap",
+        action="store_true",
+        default=False,
+        help=(
+            "Compute bootstrap 95%% CIs for R², MAE, and RMSE. "
+            "Adds _lo/_hi/_boot_std columns to comparison_metrics.csv."
+        ),
+    )
+    parser.add_argument(
+        "--n-boot",
+        type=int,
+        default=2000,
+        metavar="N",
+        help="Number of bootstrap resamples (default: 2000).",
+    )
+    parser.add_argument(
         "--cv",
         action="store_true",
         default=False,
@@ -884,7 +941,11 @@ def main():
         help="Number of CV folds for Q² computation (default: 5).",
     )
     args = parser.parse_args()
-    metrics_df = evaluate(model_names=args.models)
+    metrics_df = evaluate(
+        model_names=args.models,
+        bootstrap=args.bootstrap,
+        n_boot=args.n_boot,
+    )
 
     if args.cv:
         print()

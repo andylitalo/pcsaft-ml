@@ -14,6 +14,8 @@ XGBoost was configured as a `MultiOutputRegressor` wrapping three independent `X
 | sigma (A)   | 0.196  | 0.327  | 0.344     | 1,441         | 361          |
 | epsilon/k (K)| 26.96 | 51.45  | 0.326     | 1,441         | 361          |
 
+> **Uncertainty note**: All R², MAE, and RMSE values in this report are point estimates on a single holdout split. 95% bootstrap confidence intervals are available via `python -m model.evaluate --bootstrap` and saved to `model/saved/comparison_metrics.csv` with `_lo`/`_hi` suffix columns.
+
 XGBoost performs nearly identically to the RF baseline on all three targets. This is expected: both are ensemble tree methods operating on the same RDKit descriptor + Morgan fingerprint feature space. The gradient boosting regularization (subsample, colsample, learning rate) does not unlock meaningful additional signal from these features.
 
 ### chemprop D-MPNN

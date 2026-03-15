@@ -12,6 +12,8 @@ Four approaches were evaluated on the Esper PC-SAFT dataset (1,801 molecules, st
 | sigma (A) | 0.189 | 0.325 | 0.35 | 1,440 | 361 |
 | epsilon_k (K) | 26.8 | 51.3 | 0.33 | 1,440 | 361 |
 
+> **Uncertainty note**: All R², MAE, and RMSE values in this report are point estimates on a single holdout split. 95% bootstrap confidence intervals are available via `python -m model.evaluate --bootstrap` and saved to `model/saved/comparison_metrics.csv` with `_lo`/`_hi` suffix columns.
+
 The combined feature set (2,048-bit Morgan fingerprints + 170 cleaned RDKit 2D descriptors) produces the strongest RF performance across all three parameters. The segment number m remains the best-predicted parameter at R2=0.62, while sigma and epsilon_k see meaningful improvements over the RDKit-only baseline.
 
 ## Comparison to Baseline
