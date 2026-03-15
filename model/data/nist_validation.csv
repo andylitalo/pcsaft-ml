@@ -1,0 +1,58 @@
+smiles,name,cas_number,vp_exp_Pa,rho_exp_kg_m3,T_K,source
+C,methane,74-82-8,,,298.15,gas at standard conditions
+CC,ethane,74-84-0,,,298.15,gas at standard conditions
+CCC,propane,74-98-6,952000.0,,298.15,NIST Webbook
+CCCC,butane,106-97-8,245000.0,573.0,298.15,NIST Webbook
+CCCCC,pentane,109-66-0,68013.0,621.0,298.15,NIST Webbook
+CCCCCC,hexane,110-54-3,20200.0,655.0,298.15,NIST Webbook
+CCCCCCC,heptane,142-82-5,6100.0,679.0,298.15,NIST Webbook
+CCCCCCCC,octane,111-65-9,1860.0,698.0,298.15,NIST Webbook
+CCCCCCCCC,nonane,111-84-2,570.0,713.0,298.15,NIST Webbook
+CCCCCCCCCC,decane,124-18-5,175.0,726.0,298.15,NIST Webbook
+C(C)C,2-methylpropane,75-28-5,349000.0,551.0,298.15,NIST Webbook
+CC(C)CC,2-methylbutane,78-78-4,92500.0,616.0,298.15,NIST Webbook
+CC(C)CCC,2-methylpentane,107-83-5,27500.0,648.0,298.15,NIST Webbook
+C1CCCC1,cyclopentane,287-92-3,42500.0,740.0,298.15,NIST Webbook
+C1CCCCC1,cyclohexane,110-82-7,13000.0,774.0,298.15,NIST Webbook
+CCO,ethanol,64-17-5,7870.0,785.0,298.15,NIST Webbook
+CCCO,1-propanol,71-23-8,2810.0,799.0,298.15,NIST Webbook
+CCCCO,1-butanol,71-36-3,900.0,806.0,298.15,NIST Webbook
+CCCCCO,1-pentanol,71-41-0,280.0,811.0,298.15,NIST Webbook
+CC(C)O,2-propanol,67-63-0,5950.0,781.0,298.15,NIST Webbook
+CC(C)CO,2-methyl-1-propanol,78-83-1,1430.0,798.0,298.15,NIST Webbook
+COC,dimethyl ether,115-10-6,590000.0,,298.15,gas at standard conditions
+CCOCC,diethyl ether,60-29-7,71300.0,708.0,298.15,NIST Webbook
+CC(C)=O,acetone,67-64-1,30800.0,784.0,298.15,NIST Webbook
+CCC(C)=O,2-butanone,78-93-3,12600.0,799.0,298.15,NIST Webbook
+CCCC(C)=O,2-pentanone,107-87-9,4370.0,802.0,298.15,NIST Webbook
+CC=O,acetaldehyde,75-07-0,120000.0,778.0,298.15,NIST Webbook
+CCC=O,propanal,123-38-6,41900.0,797.0,298.15,NIST Webbook
+CC(=O)OCC,ethyl acetate,141-78-6,12300.0,894.0,298.15,NIST Webbook
+CCOC(C)=O,methyl propanoate,554-12-1,15700.0,915.0,298.15,NIST Webbook
+c1ccccc1,benzene,71-43-2,12700.0,874.0,298.15,NIST Webbook
+Cc1ccccc1,toluene,108-88-3,3800.0,862.0,298.15,NIST Webbook
+Cc1ccccc1C,o-xylene,95-47-6,1170.0,876.0,298.15,NIST Webbook
+Cc1cccc(C)c1,m-xylene,108-38-3,1110.0,860.0,298.15,NIST Webbook
+Cc1ccc(C)cc1,p-xylene,106-42-3,1170.0,857.0,298.15,NIST Webbook
+CCc1ccccc1,ethylbenzene,100-41-4,1270.0,862.0,298.15,NIST Webbook
+C=C,ethene,74-85-1,,,298.15,gas at standard conditions
+C=CC,propene,115-07-1,1150000.0,,298.15,gas at standard conditions
+ClCCl,dichloromethane,75-09-2,57300.0,1316.0,298.15,NIST Webbook
+ClC(Cl)Cl,chloroform,67-66-3,26100.0,1479.0,298.15,NIST Webbook
+ClC(Cl)(Cl)Cl,carbon tetrachloride,56-23-5,15200.0,1584.0,298.15,NIST Webbook
+ClCCCl,"1,2-dichloroethane",107-06-2,10500.0,1246.0,298.15,NIST Webbook
+ClC=C,vinyl chloride,75-01-4,355000.0,,298.15,gas at standard conditions
+ClC=CCl,"1,2-dichloroethene-cis",156-59-2,27600.0,1282.0,298.15,NIST Webbook
+FC(F)(F)C(F)(F)F,hexafluoroethane,76-16-4,,,298.15,gas at standard conditions
+FC(F)C(F)F,R134a,811-97-2,665000.0,1207.0,298.15,NIST Webbook
+FC(F)(Cl)C(F)(F)F,R125,354-33-6,1420000.0,,298.15,gas at standard conditions
+c1ccc(O)cc1,phenol,108-95-2,47.0,1054.0,298.15,NIST Webbook
+c1cccnc1,pyridine,110-86-1,2790.0,978.0,298.15,NIST Webbook
+CC#N,acetonitrile,75-05-8,11900.0,777.0,298.15,NIST Webbook
+O,water,7732-18-5,3169.0,997.0,298.15,NIST Webbook
+C1CCCCCC1,cycloheptane,291-64-5,2070.0,809.0,298.15,NIST Webbook
+C1CCCCCCCC1,cyclooctane,292-64-8,470.0,830.0,298.15,NIST Webbook
+C=C(C)C,2-methylpropene,115-11-7,280000.0,,298.15,gas at standard conditions
+C/C=C/C,trans-2-butene,624-64-6,290000.0,,298.15,gas at standard conditions
+CCC(C)(C)C,"2,2-dimethylbutane",75-83-2,37900.0,644.0,298.15,NIST Webbook
+CC(C)C(C)C,"2,3-dimethylbutane",79-29-8,31100.0,657.0,298.15,NIST Webbook
