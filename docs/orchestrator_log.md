@@ -352,3 +352,29 @@ GNN unavailable (torch_geometric not installed). 10 new tests, 3 figures.
 17, 18, 19, 20, 21, 02c.
 
 ---
+
+## 2026-03-14: Steps 22 & 23 — Henry's Screening + Narrative Report (Completed)
+
+**Step 22 (Henry's Constant Batch Screening)**: Persisted `compute_henrys_constant()`
+and `batch_henrys_constant()` in `model/thermodynamic.py`. Batch-computed Henry's
+constants for 946 VP-passing candidates in hexane solvent. Key finding: **0% rejection
+by Henry's screen** — all H/H(ref) in [0.57, 1.35]. For this constrained chemical
+space (cyclic C4–C6, Cl/F-substituted), VP-proximity already selects molecules with
+similar mixture behavior. Polyol sensitivity failed (VLE non-convergent at high m).
+Credibility analysis: median Tanimoto 0.333, H sensitivity ~78%. 7 new tests.
+
+**Step 23 (Narrative Report)**: Packaged 4,663 novel PC-SAFT predictions with trust
+signals (AD, uncertainty, screening metrics) into `novel_pcsaft_predictions.csv`.
+Validated 51 SPT-PCSAFT overlap molecules. Wrote capstone narrative report
+(`docs/reports/22_ml_chemistry_narrative.md`, 295 lines) with 7-section arc covering
+the industrial question, the fluorination rule, strained-ring exceptions, VP vs Henry's
+counterfactual, trust signals, and transferable methodology. Generated 5 figures:
+epsilon_k vs fluorines, VP vs Henry's comparison, sensitivity curve, uncertainty
+envelope, and Pareto frontier.
+
+**Current test count**: 258 passing (1 pre-existing chemprop failure), ruff clean.
+
+**ALL STEPS COMPLETE.** Phase 1 (01–09, 04b), Phase 2 (10–21, 02b, 02c), and
+capstone (22–23) all finished.
+
+---

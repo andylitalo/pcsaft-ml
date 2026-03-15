@@ -333,3 +333,26 @@ steps:
       n_tests_total: 251
       n_figures: 3
     approved: true
+  22_henrys_screening_counterfactual:
+    status: completed
+    branch: step-22-henrys-screening
+    metrics:
+      n_vp_passing: 946
+      henrys_rejection_rate: 0.0
+      h_ratio_min: 0.569
+      h_ratio_max: 1.348
+      h_ratio_median: 0.794
+      tanimoto_median: 0.333
+      h_sensitivity_median_pct: 77.9
+      n_new_tests: 7
+      n_tests_total: 258
+    approved: true
+  23_narrative_report:
+    status: completed
+    branch: step-23-narrative-report
+    metrics:
+      n_novel_predictions: 4663
+      n_spt_overlap: 51
+      n_figures: 5
+      n_tests: 258
+    approved: true
