@@ -75,8 +75,24 @@ def run_screening(
         df = pd.DataFrame(ranked)
         df.to_csv(output_path, index=False)
         print(f"\nResults saved to {output_path}")
+
+        # Summary of CI-based confidence flags
+        if "ci_compatible" in df.columns:
+            n_compat = df["ci_compatible"].sum()
+            n_high   = df["ci_high_conf"].sum()
+            print("\nCI filter summary (approx. 95% CI = pred ± 1.96 × σ_trees):")
+            print(f"  ci_compatible  : {n_compat}/{len(df)} candidates "
+                  f"— CI overlaps ±5% ε/k and ±2% σ acceptance window")
+            print(f"  ci_high_conf   : {n_high}/{len(df)} candidates "
+                  f"— entire CI lies within acceptance window")
+            print("  Note: ε/k CIs have only 90.3% empirical coverage "
+                  "(mean width ±58 K); σ CIs have 92.8% coverage.")
+
         print("\nTop 10 candidates (closest to cyclopentane):")
-        print(df.head(10).to_string(index=False))
+        display_cols = ["smiles", "sa_score", "m", "sigma", "epsilon_k", "distance"]
+        if "ci_compatible" in df.columns:
+            display_cols += ["ci_compatible", "ci_high_conf"]
+        print(df[display_cols].head(10).to_string(index=False))
     else:
         print("\nNo candidates passed all filters.")
 

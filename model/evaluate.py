@@ -561,7 +561,11 @@ def _plot_mare_by_target(metrics_df: pd.DataFrame) -> None:
     ax.set_xticks(x)
     ax.set_xticklabels([f"{TARGET_LABELS[t]} ({UNITS[t]})" for t in targets])
     ax.set_ylabel("MARE (Mean Absolute Relative Error)", fontsize=11)
-    ax.set_title("MARE by Model and Target\n(lower = better; scale-free comparison across targets)", fontsize=11)
+    ax.set_title(
+        "MARE by Model and Target\n"
+        "(lower = better; scale-free comparison across targets)",
+        fontsize=11,
+    )
     ax.legend(fontsize=9)
     ax.grid(axis="y", alpha=0.3)
     ax.axhline(0.10, color="red", linestyle="--", alpha=0.5, linewidth=1,
@@ -633,7 +637,12 @@ def compute_rf_cv_q2(n_folds: int = 5) -> dict[str, dict[str, float]]:
             "q2_std": q2_std,
             "folds": fold_scores.tolist(),
         }
-        threshold = "✓ good" if q2_mean >= 0.6 else ("✓ acceptable" if q2_mean >= 0.5 else "✗ below threshold")
+        if q2_mean >= 0.6:
+            threshold = "✓ good"
+        elif q2_mean >= 0.5:
+            threshold = "✓ acceptable"
+        else:
+            threshold = "✗ below threshold"
         print(
             f"  {target:10s}  Q²={q2_mean:.4f} ± {q2_std:.4f}"
             f"  folds={[f'{s:.3f}' for s in fold_scores]}  [{threshold}]"
@@ -727,13 +736,28 @@ def evaluate(model_names: list[str] | None = None) -> pd.DataFrame:
                 "n": metrics["n"],
             }
 
-            # Uncertainty column
+            # Uncertainty: mean std and approximate 95% CI coverage
             if uq is not None and f"{target}_std" in uq:
                 std_vals = uq[f"{target}_std"]
                 valid = np.isfinite(std_vals)
                 row["mean_std"] = float(np.nanmean(std_vals[valid])) if valid.any() else np.nan
+
+                # Approximate 95% CI: pred ± 1.96 * sigma_trees
+                # Empirical coverage = fraction of true values inside the interval.
+                # A perfectly calibrated model would score ~0.95 here.
+                mask_ci = np.isfinite(y_true) & np.isfinite(y_pred) & np.isfinite(std_vals)
+                if mask_ci.sum() >= 2:
+                    ci_half = 1.96 * std_vals[mask_ci]
+                    inside = np.abs(y_true[mask_ci] - y_pred[mask_ci]) <= ci_half
+                    row["ci95_coverage"] = float(inside.mean())
+                    row["mean_ci95_width"] = float((2 * ci_half).mean())
+                else:
+                    row["ci95_coverage"] = np.nan
+                    row["mean_ci95_width"] = np.nan
             else:
                 row["mean_std"] = np.nan
+                row["ci95_coverage"] = np.nan
+                row["mean_ci95_width"] = np.nan
 
             # AD split metrics
             if ad_labels is not None:
@@ -759,11 +783,18 @@ def evaluate(model_names: list[str] | None = None) -> pd.DataFrame:
 
             rows.append(row)
 
+            ci_str = ""
+            if not np.isnan(row.get("ci95_coverage", np.nan)):
+                ci_str = (
+                    f"  CI95_cov={row['ci95_coverage']:.3f}"
+                    f"  CI95_width={row['mean_ci95_width']:.3f}"
+                )
             print(
                 f"  {target:10s}  MAE={metrics['mae']:.4f}  "
                 f"RMSE={metrics['rmse']:.4f}  R\u00b2={metrics['r2']:.4f}  "
                 f"MARE={metrics['mare']:.3f}  CCC={metrics['ccc']:.4f}  "
                 f"cov5%={metrics['coverage_5pct']:.3f}  cov10%={metrics['coverage_10pct']:.3f}"
+                f"{ci_str}"
             )
         print()
 
@@ -794,9 +825,15 @@ def evaluate(model_names: list[str] | None = None) -> pd.DataFrame:
             cov_str = ""
             if not np.isnan(r.get("coverage_5pct", np.nan)):
                 cov_str = f"  cov5%={r['coverage_5pct']:.3f}  cov10%={r['coverage_10pct']:.3f}"
+            ci_str = ""
+            if not np.isnan(r.get("ci95_coverage", np.nan)):
+                ci_str = (
+                    f"  CI95_cov={r['ci95_coverage']:.3f}"
+                    f"  CI95_width={r['mean_ci95_width']:.3f}"
+                )
             print(
                 f"    {t:10s}  MAE={r['mae']:.4f}  RMSE={r['rmse']:.4f}  "
-                f"R\u00b2={r['r2']:.4f}{mare_str}{ccc_str}{cov_str}{std_str}{ad_str}"
+                f"R\u00b2={r['r2']:.4f}{mare_str}{ccc_str}{cov_str}{std_str}{ci_str}{ad_str}"
             )
     print("\n" + "=" * 100)
 

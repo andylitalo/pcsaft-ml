@@ -1,7 +1,8 @@
 """Generate Step 10 figure: Esper-only baseline (ML-SAFT integration pending)."""
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
-from pathlib import Path
 
 OUTPUT_DIR = Path("figures/10_mlsaft")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -17,12 +18,22 @@ x = np.arange(len(targets))
 width = 0.35
 
 fig, ax = plt.subplots(figsize=(8, 5))
-bars1 = ax.bar(x - width / 2, r2_phase1, width, label="Phase 1 (original)", color="#2196F3", alpha=0.85)
-bars2 = ax.bar(x + width / 2, r2_phase2, width, label="Phase 2 retrain (Esper)", color="#4CAF50", alpha=0.85)
+bars1 = ax.bar(
+    x - width / 2, r2_phase1, width,
+    label="Phase 1 (original)", color="#2196F3", alpha=0.85,
+)
+bars2 = ax.bar(
+    x + width / 2, r2_phase2, width,
+    label="Phase 2 retrain (Esper)", color="#4CAF50", alpha=0.85,
+)
 
 ax.set_xlabel("PC-SAFT Parameter", fontsize=12)
 ax.set_ylabel("R² (test set)", fontsize=12)
-ax.set_title("Step 10: RF Retrain Baseline\n(ML-SAFT integration pending — Esper only)", fontsize=12)
+ax.set_title(
+    "Step 10: RF Retrain Baseline\n"
+    "(ML-SAFT integration pending — Esper only)",
+    fontsize=12,
+)
 ax.set_xticks(x)
 ax.set_xticklabels(targets)
 ax.set_ylim(0, 0.85)

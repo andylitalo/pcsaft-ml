@@ -16,8 +16,6 @@ from sklearn.preprocessing import StandardScaler
 from model.data.descriptors import build_features
 from model.data.load import TARGETS
 from model.gc_pcsaft import predict_gc_pcsaft
-from model.hf.chemberta_model import ChemBERTaForPCSAFT
-from model.nn.architecture import PCSAFTNet
 
 logger = logging.getLogger(__name__)
 
@@ -181,11 +179,13 @@ class NNModel:
     """PCSAFTNet wrapper with MC Dropout uncertainty."""
 
     def __init__(self):
-        self._net: PCSAFTNet | None = None
+        self._net = None
         self._feature_scaler: StandardScaler | None = None
         self._target_scalers: dict[str, dict[str, float]] | None = None
 
     def load(self) -> None:
+        from model.nn.architecture import PCSAFTNet
+
         path = SAVED_DIR / "nn_pcsaft.pt"
         if not path.exists():
             raise FileNotFoundError(f"NN checkpoint not found: {path}")
@@ -267,6 +267,121 @@ class NNModel:
 
 
 # ---------------------------------------------------------------------------
+# GNN wrapper
+# ---------------------------------------------------------------------------
+
+@register_model("gnn")
+class GNNModel:
+    """GIN-based Graph Neural Network with MC Dropout uncertainty."""
+
+    def __init__(self):
+        self._net = None
+        self._target_scalers: dict[str, dict[str, float]] | None = None
+
+    def load(self) -> None:
+        from model.gnn.architecture import PCSAFTGraphNet
+
+        path = SAVED_DIR / "gnn_pcsaft.pt"
+        if not path.exists():
+            raise FileNotFoundError(
+                f"GNN checkpoint not found: {path}. "
+                "Train with: python -m model.gnn.train_gnn"
+            )
+        checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+        cfg = checkpoint["model_config"]
+        self._net = PCSAFTGraphNet(
+            node_dim=cfg["node_dim"],
+            edge_dim=cfg["edge_dim"],
+            hidden_dim=cfg.get("hidden_dim", 256),
+            num_layers=cfg.get("num_layers", 4),
+            dropout=cfg.get("dropout", 0.1),
+            num_targets=cfg.get("num_targets", 3),
+        )
+        self._net.load_state_dict(checkpoint["model_state_dict"])
+        self._net.eval()
+        self._target_scalers = checkpoint["target_scalers"]
+
+    def _denormalize(self, target: str, values: np.ndarray) -> np.ndarray:
+        info = self._target_scalers[target]
+        return values * info["std"] + info["mean"]
+
+    def _graphs_from_smiles(self, smiles_list: list[str]):
+        """Convert SMILES to batched PyG data."""
+        from torch_geometric.data import Batch
+
+        from model.gnn.graph_featurizer import smiles_to_graph
+
+        graphs = []
+        valid_indices = []
+        for i, smi in enumerate(smiles_list):
+            g = smiles_to_graph(smi)
+            if g is not None:
+                graphs.append(g)
+                valid_indices.append(i)
+        if not graphs:
+            return None, valid_indices
+        batch = Batch.from_data_list(graphs)
+        return batch, valid_indices
+
+    def predict(self, smiles_list: list[str]) -> dict[str, np.ndarray]:
+        if self._net is None:
+            self.load()
+
+        batch, valid_indices = self._graphs_from_smiles(smiles_list)
+        result: dict[str, np.ndarray] = {}
+        for t in TARGETS:
+            result[t] = np.full(len(smiles_list), np.nan)
+
+        if batch is None:
+            return result
+
+        self._net.eval()
+        with torch.no_grad():
+            preds = self._net(
+                batch.x, batch.edge_index, batch.edge_attr, batch.batch
+            ).cpu().numpy()
+
+        for i_target, t in enumerate(TARGETS):
+            denormed = self._denormalize(t, preds[:, i_target])
+            for j, idx in enumerate(valid_indices):
+                result[t][idx] = denormed[j]
+
+        return result
+
+    def predict_with_uncertainty(
+        self, smiles_list: list[str], n_forward: int = 30
+    ) -> dict[str, np.ndarray]:
+        if self._net is None:
+            self.load()
+
+        batch, valid_indices = self._graphs_from_smiles(smiles_list)
+        result: dict[str, np.ndarray] = {}
+        for t in TARGETS:
+            result[t] = np.full(len(smiles_list), np.nan)
+            result[f"{t}_std"] = np.full(len(smiles_list), np.nan)
+
+        if batch is None:
+            return result
+
+        mean_pred, std_pred = self._net.predict_with_uncertainty(
+            batch.x, batch.edge_index, batch.edge_attr, batch.batch,
+            n_forward=n_forward,
+        )
+        mean_np = mean_pred.cpu().numpy()
+        std_np = std_pred.cpu().numpy()
+
+        for i_target, t in enumerate(TARGETS):
+            denormed_mean = self._denormalize(t, mean_np[:, i_target])
+            info = self._target_scalers[t]
+            denormed_std = std_np[:, i_target] * info["std"]
+            for j, idx in enumerate(valid_indices):
+                result[t][idx] = denormed_mean[j]
+                result[f"{t}_std"][idx] = denormed_std[j]
+
+        return result
+
+
+# ---------------------------------------------------------------------------
 # ChemBERTa wrapper
 # ---------------------------------------------------------------------------
 
@@ -275,12 +390,14 @@ class ChemBERTaModel:
     """ChemBERTa fine-tuned wrapper with MC Dropout uncertainty."""
 
     def __init__(self):
-        self._model: ChemBERTaForPCSAFT | None = None
+        self._model = None
         self._tokenizer = None
         self._target_scalers: dict[str, dict[str, float]] | None = None
 
     def load(self) -> None:
         from transformers import AutoTokenizer
+
+        from model.hf.chemberta_model import ChemBERTaForPCSAFT
 
         chemberta_dir = SAVED_DIR / "chemberta"
 

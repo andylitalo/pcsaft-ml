@@ -1,28 +1,19 @@
-"""Download the ML-SAFT dataset of PC-SAFT parameters.
+"""Download the ML-SAFT dataset of regressed PC-SAFT parameters.
 
-This script downloads a supplementary PC-SAFT parameters dataset to augment
-the Esper training set.
+Source: Felton et al. (2024), "ML-SAFT: A machine learning framework for
+PCP-SAFT parameter prediction", Chemical Engineering Journal.
+DOI: 10.1016/j.cej.2024.151999
+GitHub: https://github.com/sustainable-processes/ml_saft
 
-IMPORTANT — Dataset Source:
-    The Figshare article ID originally encoded here (24689738) resolves to an
-    unrelated soil-science dataset. Before running this script, verify the
-    correct source for the ML-SAFT or supplementary PC-SAFT dataset you want
-    to use. Candidate sources:
-      - Esper et al. supplementary data (same group, extended set)
-      - Rehner & Gross (2023) "FeOs" supplementary tables
-      - Any published PC-SAFT parameter table with SMILES identifiers
-
-    Update FIGSHARE_ARTICLE_URL below with the correct article ID, or
-    replace this script entirely with a direct CSV download.
+The regressed parameters live in the repo at
+data/05_model_input/pcp_saft_regressed_filtered.csv (~870 molecules).
 
 Usage:
     python -m model.data.download_mlsaft
 """
 
-import io
 import logging
 import sys
-import zipfile
 from pathlib import Path
 
 import pandas as pd
@@ -30,7 +21,11 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-FIGSHARE_ARTICLE_URL = "https://api.figshare.com/v2/articles/24689738"
+MLSAFT_CSV_URL = (
+    "https://raw.githubusercontent.com/sustainable-processes/ml_saft"
+    "/main/data/05_model_input/pcp_saft_regressed_filtered.csv"
+)
+
 OUTPUT_DIR = Path(__file__).parent
 OUTPUT_FILE = OUTPUT_DIR / "mlsaft_pcsaft.csv"
 
@@ -40,7 +35,7 @@ def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     col_map = {}
     for col in df.columns:
         low = col.strip().lower()
-        if low in ("smiles", "smiles_string", "canonical_smiles"):
+        if low in ("smiles", "smiles_1", "smiles_string", "canonical_smiles"):
             col_map[col] = "smiles"
         elif low in ("m", "m_seg", "segment_number"):
             col_map[col] = "m"
@@ -69,45 +64,15 @@ def download_mlsaft() -> pd.DataFrame:
         logger.info("ML-SAFT dataset already exists: %s", OUTPUT_FILE)
         return pd.read_csv(OUTPUT_FILE)
 
-    print("Fetching ML-SAFT article metadata from Figshare...")
-    resp = requests.get(FIGSHARE_ARTICLE_URL, timeout=30)
+    print("Downloading ML-SAFT regressed parameters from GitHub...")
+    resp = requests.get(MLSAFT_CSV_URL, timeout=60)
     resp.raise_for_status()
-    article = resp.json()
 
-    # Find downloadable data file (CSV, XLSX, or ZIP)
-    download_url = None
-    filename = None
-    for f in article.get("files", []):
-        fname = f.get("name", "")
-        if fname.endswith((".csv", ".xlsx", ".xls", ".zip")):
-            download_url = f["download_url"]
-            filename = fname
-            break
+    from io import StringIO
 
-    if download_url is None:
-        raise RuntimeError(
-            "No CSV/XLSX/XLS/ZIP file found in ML-SAFT Figshare article. "
-            f"Available files: {[f['name'] for f in article.get('files', [])]}"
-        )
-
-    print(f"Downloading {filename} from {download_url}...")
-    data_resp = requests.get(download_url, timeout=120)
-    data_resp.raise_for_status()
-
-    if filename.endswith(".zip"):
-        z = zipfile.ZipFile(io.BytesIO(data_resp.content))
-        csv_names = [n for n in z.namelist() if n.endswith(".csv")]
-        if not csv_names:
-            raise RuntimeError(f"No CSV found inside zip. Contents: {z.namelist()}")
-        print(f"  Extracting {csv_names[0]} from zip...")
-        with z.open(csv_names[0]) as f:
-            df = pd.read_csv(f)
-    elif filename.endswith((".xlsx", ".xls")):
-        df = pd.read_excel(io.BytesIO(data_resp.content))
-    else:
-        df = pd.read_csv(io.StringIO(data_resp.text))
-
+    df = pd.read_csv(StringIO(resp.text))
     print(f"Raw ML-SAFT data shape: {df.shape}")
+
     df = _normalize_columns(df)
 
     required = {"smiles", "m", "sigma", "epsilon_k"}
@@ -115,10 +80,7 @@ def download_mlsaft() -> pd.DataFrame:
     if missing:
         raise RuntimeError(
             f"Downloaded file is missing required PC-SAFT columns: {missing}.\n"
-            f"Available columns: {list(df.columns)}\n"
-            "The Figshare article ID in this script may be incorrect. "
-            "Update FIGSHARE_ARTICLE_URL with the correct dataset source. "
-            "See the module docstring for guidance."
+            f"Available columns: {list(df.columns)}"
         )
 
     keep = ["name", "smiles", "m", "sigma", "epsilon_k"]

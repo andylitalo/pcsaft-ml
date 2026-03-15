@@ -133,6 +133,61 @@ def predict_rf_with_uncertainty(smiles_list: list[str]) -> dict:
     return result
 
 
+def predict_pcsaft_with_ci(
+    smiles_list: list[str],
+    z: float = 1.96,
+) -> "pd.DataFrame":
+    """Predict PC-SAFT parameters with approximate confidence intervals.
+
+    Interval formula: pred ± z * sigma_trees, where sigma_trees is the
+    standard deviation of individual RF tree predictions.
+
+    Empirical CI coverage on the Esper test set (361 molecules):
+        m        : 95.3%  — near-nominal, interval is reliable
+        σ        : 92.8%  — slightly under-covers; ~7% of true values escape
+        ε/k      : 90.3%  — under-covers; intervals are wide (~±58 K mean)
+
+    The intervals are useful as a relative uncertainty signal and for
+    candidate filtering, but are NOT statistically guaranteed. Use with
+    that limitation in mind, especially for ε/k.
+
+    Parameters
+    ----------
+    smiles_list : list[str]
+        SMILES strings to predict.
+    z : float
+        Normal quantile multiplier. Default 1.96 (~95% CI under normality).
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns: smiles, m, sigma, epsilon_k,
+                 m_std, sigma_std, epsilon_k_std,
+                 m_lo95, m_hi95,
+                 sigma_lo95, sigma_hi95,
+                 eps_lo95, eps_hi95
+    """
+
+    uq = predict_rf_with_uncertainty(smiles_list)
+
+    rows = []
+    for i, smi in enumerate(smiles_list):
+        row = {"smiles": smi}
+        for target, col in [("m", "m"), ("sigma", "sigma"), ("epsilon_k", "epsilon_k")]:
+            pred = float(uq[target][i])
+            std = float(uq[f"{target}_std"][i])
+            half = z * std
+            row[col] = pred
+            row[f"{col}_std"] = std
+            lo_key = f"{col}_lo95" if col != "epsilon_k" else "eps_lo95"
+            hi_key = f"{col}_hi95" if col != "epsilon_k" else "eps_hi95"
+            row[lo_key] = pred - half
+            row[hi_key] = pred + half
+        rows.append(row)
+
+    return pd.DataFrame(rows)
+
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python -m model.predict SMILES [SMILES ...]")
