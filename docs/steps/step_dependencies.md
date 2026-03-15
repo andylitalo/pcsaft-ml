@@ -129,6 +129,98 @@ steps:
       - figures/09_thermodynamic_validation/
       - Parameter-vs-property rank correlation
     gates: []
+
+  22_henrys_screening_counterfactual:
+    depends_on: [20, 21]
+    optional_deps: [dev, thermo]
+    produces:
+      - model/thermodynamic.py::compute_henrys_constant()
+      - model/saved/henrys_constant_screening.csv
+      - model/saved/vp_vs_henrys_comparison.csv
+      - model/saved/henrys_polyol_sensitivity.csv
+      - model/saved/standout_candidates_credibility.csv
+    gates: [23]
+
+  23_narrative_report_novel_predictions:
+    depends_on: [22]
+    optional_deps: [dev, thermo]
+    produces:
+      - model/saved/novel_pcsaft_predictions.csv
+      - model/saved/active_learning_shortlist.csv (optional)
+      - figures/23_ml_chemistry_narrative/ (5 figures)
+      - docs/reports/23_ml_chemistry_narrative.md
+    gates: [24]
+
+  24_hfo_boiling_point_validation:
+    depends_on: [09, 16]
+    optional_deps: [dev, thermo]
+    produces:
+      - screening/hfo_screening.py
+      - figures/24_hfo_boiling_point_validation/boiling_point_parity.png
+      - docs/reports/24_hfo_boiling_point_validation.md
+    gates: [25]
+
+  25_hfo_centric_screening:
+    depends_on: [24, 20]
+    optional_deps: [dev, thermo]
+    produces:
+      - screening/results/hfo_centric_ranked.csv
+      - figures/25_hfo_centric_screening/ (5 figures)
+      - docs/reports/25_hfo_centric_screening.md
+    gates: [27]
+
+  26_extract_installable_package:
+    depends_on: [02b, 14]
+    optional_deps: [dev, nn]
+    produces:
+      - pcsaft_predict/ package
+      - pcsaft_predict/pyproject.toml
+      - tests/test_pcsaft_predict.py
+    gates: [27, 29]
+
+  27_generalize_portal:
+    depends_on: [08, 25, 26]
+    optional_deps: [dev, portal]
+    produces:
+      - portal/presets.py
+      - portal/components/screener.py (new)
+      - portal/app.py (modified)
+      - portal/api_client.py (modified)
+    gates: [29]
+
+  28_dataset_model_card_publication:
+    depends_on: [23, 25]
+    optional_deps: [dev]
+    produces:
+      - data/pcsaft_novel_predictions_v1.csv
+      - data/DATASHEET.md
+      - docs/model_cards/gnn.md
+      - docs/model_cards/rf.md
+      - docs/model_cards/ensemble.md
+      - CITATION.cff
+    gates: [29]
+
+  29_documentation_examples:
+    depends_on: [26, 27, 28]
+    optional_deps: [dev]
+    produces:
+      - README.md (rewritten)
+      - examples/quickstart.ipynb
+      - examples/screening_workflow.ipynb
+      - CONTRIBUTING.md
+      - docs/api/ (auto-generated)
+    gates: [30]
+
+  30_release_preparation:
+    depends_on: [29]
+    optional_deps: [dev]
+    produces:
+      - LICENSE
+      - .github/workflows/ci.yml
+      - .github/ISSUE_TEMPLATE/ (3 templates)
+      - CHANGELOG.md
+      - v1.0.0 git tag
+    gates: []
 ```
 
 ---

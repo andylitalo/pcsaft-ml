@@ -131,18 +131,23 @@ Some alkanes (heptane, octane, nonane, decane) returned **NaN for density** desp
 
 3. **Esper reference parameters underperform**: The surprisingly poor performance of Esper reference parameters (MARE 8185%) suggests those parameters may not be optimized for saturation properties at 298.15 K.
 
-### Recommendations for Future Work
+### Association Parameter Prediction: Out of Scope
 
-1. **Extend model to predict association parameters**: Add κ_AB and ε_AB/k as additional targets. This requires:
-   - Training data with association parameters (available in Esper dataset)
-   - Feature engineering to identify H-bond donors/acceptors (RDKit has these descriptors)
-   - Modified PC-SAFT EOS calculations to include association term
+Extending the model to predict association parameters (κ_AB, ε_AB/k) was investigated and determined to be out of scope for three reasons:
 
-2. **Use group contribution methods for associating fluids**: Hybrid approach — use ML for non-associating parameters, fall back to group contribution (e.g., SAFT-γ Mie) for associating compounds.
+1. **Sparse training data**: Only ~200–500 compounds in the open literature have experimentally fitted PC-SAFT association parameters. The SPT-PCSAFT dataset (Winter et al. 2025) contains ML-predicted association values for ~3,974 compounds, but using ML-predicted labels to train another ML model compounds errors. The gold-standard sources (DDB, DIPPR) are commercially licensed.
 
-3. **Add dipole moment as a target**: For polar non-associating compounds, PC-SAFT can include a dipole term. Predicting μ (dipole moment) as an additional target could improve VP predictions for acetone, acetaldehyde, etc.
+2. **Unfavorable data-to-feature ratio**: The model already operates in a high-dimensional feature space (~2,150 dimensions) with only ~1,800 training molecules. Adding two more regression targets with even sparser labeled data would exacerbate overfitting. The association parameters are also strongly coupled to the dispersion parameters during regression, so errors in the existing three targets would propagate into the association fits.
 
-4. **Investigate Esper parameter usage**: Understand whether Esper parameters are intended for saturation properties or other conditions, and whether our teqp usage is appropriate.
+3. **Diminished screening utility**: With three parameters, we are already unable to find a candidate whose PC-SAFT parameter set closely matches cyclopentane. Adding two more parameters to match makes the search strictly harder — the probability of finding a compound that simultaneously matches all five parameters in our candidate space is lower, not higher. The practical benefit to the screening task does not justify the complexity.
+
+Additionally, teqp (our EOS backend) does not support the association contribution; switching to the `pcsaft` package or implementing a differentiable PC-SAFT association term in PyTorch would be required.
+
+### Other Future Directions
+
+1. **Investigate Esper parameter usage**: Understand whether Esper parameters are intended for saturation properties or other conditions, and whether our teqp usage is appropriate.
+
+2. **Add dipole moment as a target**: For polar non-associating compounds, PC-SAFT can include a dipole term. Predicting μ (dipole moment) as an additional target could improve VP predictions for acetone, acetaldehyde, etc.
 
 ## Comparison to Step 09 (Internal EOS Closure)
 

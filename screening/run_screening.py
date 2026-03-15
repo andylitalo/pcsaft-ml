@@ -2,7 +2,8 @@
 
 Usage:
     python -m screening.run_screening [--skip-patents] [--sa-threshold 4.5]
-                                       [--scaffold-set {hfo,broad,all}]
+                                       [--scaffold-set {hfo,broad,all,systematic}]
+                                       [--max-cl 1] [--max-mw 200]
 """
 
 import argparse
@@ -27,6 +28,8 @@ def run_screening(
     skip_patents: bool = False,
     sa_threshold: float = 4.5,
     scaffold_set: str = "hfo",
+    max_cl: int = 1,
+    max_mw: float = 200.0,
 ):
     """Run the full 4-stage screening pipeline.
 
@@ -39,16 +42,26 @@ def run_screening(
     scaffold_set : str
         Scaffold family set: "hfo" (original HFOs only), "broad" (all
         families: HFO + HCFO + HFE + unsaturated + cyclic), "all" (same
-        as broad).
+        as broad), "systematic" (exhaustive combinatorial F/Cl on alkene
+        backbones).
+    max_cl : int
+        For "systematic": max Cl atoms per molecule (0=HFO-only, 1=HCFOs).
+    max_mw : float
+        For "systematic": molecular weight ceiling in Da.
     """
     print("=" * 60)
     print("Blowing Agent Screening Pipeline")
     print(f"  Scaffold set: {scaffold_set}")
+    if scaffold_set == "systematic":
+        print(f"  Max Cl atoms: {max_cl}")
+        print(f"  Max MW: {max_mw} Da")
     print("=" * 60)
 
     # Stage 1: Generate candidates
     print(f"\n[1/4] Generating candidates (scaffold_set={scaffold_set})...")
-    candidates = generate_hfo_candidates(scaffold_set=scaffold_set)
+    candidates = generate_hfo_candidates(
+        scaffold_set=scaffold_set, max_cl=max_cl, max_mw=max_mw,
+    )
 
     # Stage 2: SA Score filter
     print("\n[2/4] Filter 1: Synthetic Accessibility Score...")
@@ -117,16 +130,32 @@ def main():
     )
     parser.add_argument(
         "--scaffold-set",
-        choices=["hfo", "broad", "all"],
+        choices=["hfo", "broad", "all", "systematic"],
         default="hfo",
         help="Scaffold family set (default: hfo). 'broad'/'all' includes HCFOs, "
-             "HFEs, unsaturated hydrocarbons, and cyclic fluorinated compounds.",
+             "HFEs, unsaturated hydrocarbons, and cyclic fluorinated compounds. "
+             "'systematic' exhaustively enumerates F/Cl patterns on alkene backbones.",
+    )
+    parser.add_argument(
+        "--max-cl",
+        type=int,
+        default=1,
+        help="For 'systematic': max Cl atoms per molecule (default: 1). "
+             "0 = HFO-only, 1 = include HCFOs.",
+    )
+    parser.add_argument(
+        "--max-mw",
+        type=float,
+        default=200.0,
+        help="For 'systematic': molecular weight ceiling in Da (default: 200).",
     )
     args = parser.parse_args()
     run_screening(
         skip_patents=args.skip_patents,
         sa_threshold=args.sa_threshold,
         scaffold_set=args.scaffold_set,
+        max_cl=args.max_cl,
+        max_mw=args.max_mw,
     )
 
 

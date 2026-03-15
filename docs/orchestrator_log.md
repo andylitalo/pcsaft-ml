@@ -366,7 +366,7 @@ Credibility analysis: median Tanimoto 0.333, H sensitivity ~78%. 7 new tests.
 **Step 23 (Narrative Report)**: Packaged 4,663 novel PC-SAFT predictions with trust
 signals (AD, uncertainty, screening metrics) into `novel_pcsaft_predictions.csv`.
 Validated 51 SPT-PCSAFT overlap molecules. Wrote capstone narrative report
-(`docs/reports/22_ml_chemistry_narrative.md`, 295 lines) with 7-section arc covering
+(`docs/reports/23_ml_chemistry_narrative.md`, 295 lines) with 7-section arc covering
 the industrial question, the fluorination rule, strained-ring exceptions, VP vs Henry's
 counterfactual, trust signals, and transferable methodology. Generated 5 figures:
 epsilon_k vs fluorines, VP vs Henry's comparison, sensitivity curve, uncertainty

@@ -6,11 +6,14 @@ Supports multiple scaffold families:
 - HFEs (hydrofluoroethers): ether linkages with fluorinated chains
 - Unsaturated hydrocarbons: C3-C5 alkenes and cycloalkenes
 - Cyclic fluorinated: C3-C6 rings with F substitution patterns
+- Systematic: exhaustive combinatorial F/Cl substitution on alkene backbones
 """
 
 import logging
+from itertools import combinations, product
 
 from rdkit import Chem
+from rdkit.Chem import Descriptors
 from rdkit.Chem.EnumerateStereoisomers import (
     EnumerateStereoisomers,
     StereoEnumerationOptions,
@@ -131,6 +134,180 @@ BASE_CYCLIC_FLUORINATED = [
     "FC1(F)C(F)(F)C1",   # tetrafluorocyclopropane
 ]
 
+# ---------------------------------------------------------------------------
+# Systematic enumeration: bare alkene backbones for exhaustive F/Cl placement
+# ---------------------------------------------------------------------------
+# Every C-H position on these backbones will be combinatorially assigned
+# H, F, or (at most one) Cl. The C=C double bond is preserved in all variants
+# to ensure short atmospheric lifetime (low GWP).
+
+ALKENE_BACKBONES: list[str] = [
+    # Acyclic — C2
+    "C=C",              # ethene
+    # Acyclic — C3
+    "CC=C",             # propene
+    # Acyclic — C4
+    "CCC=C",            # 1-butene
+    "CC=CC",            # 2-butene
+    "CC(=C)C",          # isobutylene (2-methylpropene)
+    # Acyclic — C5
+    "CCCC=C",           # 1-pentene
+    "CCC=CC",           # 2-pentene
+    "CCC(=C)C",         # 2-methyl-1-butene
+    "CC(C)C=C",         # 3-methyl-1-butene
+    "CC(C)=CC",         # 2-methyl-2-butene
+    # Endocyclic alkenes
+    "C1=CC1",           # cyclopropene
+    "C1=CCC1",          # cyclobutene
+    "C1=CCCC1",         # cyclopentene
+    "C1=CCCCC1",        # cyclohexene
+    # Exocyclic alkenes
+    "C=C1CC1",          # methylenecyclopropane
+    "C=C1CCC1",         # methylenecyclobutane
+]
+
+
+def _enumerate_halogen_patterns(
+    backbone_smi: str,
+    *,
+    max_cl: int = 1,
+    max_mw: float = 200.0,
+) -> set[str]:
+    """Exhaustively enumerate F/Cl substitution patterns on a backbone.
+
+    For each H bonded to a carbon atom, independently assign H (keep),
+    F, or Cl, subject to the constraint that at most *max_cl* Cl atoms
+    appear and at least one F is present (to exclude plain hydrocarbons).
+
+    Parameters
+    ----------
+    backbone_smi : str
+        SMILES of the unsubstituted alkene backbone.
+    max_cl : int
+        Maximum number of Cl atoms per molecule (default 1 for HCFOs).
+    max_mw : float
+        Reject molecules with MW above this threshold. Blowing agents
+        need to be volatile; 200 Da covers all commercial HFOs/HCFOs.
+
+    Returns
+    -------
+    set[str]
+        Canonical SMILES of all valid substitution patterns.
+    """
+    mol = Chem.MolFromSmiles(backbone_smi)
+    if mol is None:
+        return set()
+
+    mol = Chem.AddHs(mol)
+
+    h_on_c_indices: list[int] = []
+    for atom in mol.GetAtoms():
+        if atom.GetAtomicNum() != 1:
+            continue
+        for nbr in atom.GetNeighbors():
+            if nbr.GetAtomicNum() == 6:
+                h_on_c_indices.append(atom.GetIdx())
+                break
+
+    n = len(h_on_c_indices)
+    if n == 0:
+        return set()
+
+    results: set[str] = set()
+
+    for n_cl in range(min(max_cl, n) + 1):
+        for cl_sites in combinations(range(n), n_cl):
+            cl_set = set(cl_sites)
+            remaining = [i for i in range(n) if i not in cl_set]
+
+            for f_pattern in product((1, 9), repeat=len(remaining)):
+                if n_cl == 0 and 9 not in f_pattern:
+                    continue  # skip parent hydrocarbon (no halogens)
+
+                ed = Chem.RWMol(Chem.Mol(mol))
+
+                for si in cl_sites:
+                    ed.GetAtomWithIdx(h_on_c_indices[si]).SetAtomicNum(17)
+                for si, z in zip(remaining, f_pattern):
+                    if z == 9:
+                        ed.GetAtomWithIdx(h_on_c_indices[si]).SetAtomicNum(9)
+
+                try:
+                    Chem.SanitizeMol(ed)
+                    if Descriptors.ExactMolWt(ed) > max_mw:
+                        continue
+                    ed_clean = Chem.RemoveHs(ed)
+                    results.add(Chem.MolToSmiles(ed_clean))
+                except Exception:
+                    pass
+
+    return results
+
+
+def generate_systematic_candidates(
+    backbones: list[str] | None = None,
+    *,
+    max_cl: int = 1,
+    max_mw: float = 200.0,
+) -> list[tuple[str, Chem.Mol]]:
+    """Systematically enumerate HFO/HCFO candidates from alkene backbones.
+
+    For each backbone, exhaustively places F (and optionally Cl) at every
+    C-H site, then enumerates E/Z and R/S stereoisomers.
+
+    Parameters
+    ----------
+    backbones : list[str] | None
+        Alkene backbone SMILES. Defaults to ALKENE_BACKBONES.
+    max_cl : int
+        Maximum Cl atoms per molecule (0 = HFO-only, 1 = include HCFOs).
+    max_mw : float
+        Molecular weight ceiling in Da.
+
+    Returns
+    -------
+    list[tuple[str, Mol]]
+        Deduplicated (canonical_SMILES, Mol) pairs with stereoisomers.
+    """
+    if backbones is None:
+        backbones = ALKENE_BACKBONES
+
+    all_smiles: set[str] = set()
+    for bb in backbones:
+        patterns = _enumerate_halogen_patterns(
+            bb, max_cl=max_cl, max_mw=max_mw,
+        )
+        logger.info("Backbone %s → %d unique patterns", bb, len(patterns))
+        all_smiles.update(patterns)
+
+    logger.info(
+        "Combinatorial enumeration: %d unique SMILES from %d backbones",
+        len(all_smiles), len(backbones),
+    )
+
+    seen: set[str] = set()
+    candidates: list[tuple[str, Chem.Mol]] = []
+
+    for smi in sorted(all_smiles):
+        mol = Chem.MolFromSmiles(smi)
+        if mol is None:
+            continue
+        for iso in _enumerate_stereoisomers(mol) or [mol]:
+            can = Chem.MolToSmiles(iso)
+            if can not in seen:
+                seen.add(can)
+                candidates.append((can, iso))
+
+    logger.info(
+        "After stereoisomer enumeration: %d unique candidates", len(candidates),
+    )
+    print(
+        f"Systematic enumeration: {len(candidates)} unique candidates "
+        f"from {len(backbones)} backbones (max_cl={max_cl}, max_mw={max_mw})"
+    )
+    return candidates
+
+
 # Scaffold set mapping
 SCAFFOLD_SETS = {
     "hfo": [BASE_HFOS],
@@ -201,6 +378,9 @@ def _generate_fluorine_variants(smi: str) -> list[str]:
 def generate_hfo_candidates(
     base_smiles: list[str] | None = None,
     scaffold_set: str = "hfo",
+    *,
+    max_cl: int = 1,
+    max_mw: float = 200.0,
 ) -> list[tuple[str, Chem.Mol]]:
     """Generate candidate molecules with stereoisomer enumeration.
 
@@ -210,14 +390,23 @@ def generate_hfo_candidates(
         Starting SMILES. If None, uses scaffolds from *scaffold_set*.
     scaffold_set : str
         Which scaffold families to use: "hfo" (original), "broad" (all
-        families), or "all" (same as broad). Only used when *base_smiles*
-        is None.
+        families), "all" (same as broad), or "systematic" (exhaustive
+        combinatorial F/Cl placement on alkene backbones).
+    max_cl : int
+        For "systematic" mode: max Cl atoms per molecule.
+    max_mw : float
+        For "systematic" mode: MW ceiling in Da.
 
     Returns
     -------
     list[tuple[str, Mol]]
         List of (canonical_SMILES, RDKit Mol) tuples.
     """
+    if scaffold_set == "systematic" and base_smiles is None:
+        return generate_systematic_candidates(
+            max_cl=max_cl, max_mw=max_mw,
+        )
+
     if base_smiles is None:
         scaffold_lists = SCAFFOLD_SETS.get(scaffold_set, [BASE_HFOS])
         base_smiles = []
