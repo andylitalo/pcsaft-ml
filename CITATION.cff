@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+title: pcsaft-predict
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - family-names: "ML-Chem Project Team"
+    affiliation: "Independent Research"
+repository-code: "https://github.com/example/pcsaft-predict"
+url: "https://github.com/example/pcsaft-predict"
+abstract: >-
+  Machine learning pipeline for predicting PC-SAFT equation-of-state parameters
+  (m, sigma, epsilon/k) for molecular screening of refrigerant candidates.
+  Combines Random Forest baseline with Graph Neural Network (GIN) for improved
+  accuracy on halogenated hydrocarbons. Includes thermodynamic validation via
+  teqp EOS calculations and applicability domain estimation.
+keywords:
+  - machine-learning
+  - pc-saft
+  - equation-of-state
+  - molecular-property-prediction
+  - refrigerants
+  - graph-neural-networks
+  - random-forest
+  - thermodynamics
+  - cheminformatics
+license: MIT
+version: 1.0.0
+date-released: "2026-03-15"

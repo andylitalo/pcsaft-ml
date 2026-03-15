@@ -12,12 +12,14 @@ class PCSAFTClient:
 
     Parameters
     ----------
-    base_url : str
+    base_url : str | None
         Base URL of the FastAPI service (e.g., http://localhost:8000).
+        If None, falls back to direct pcsaft_predict library calls.
     """
 
-    def __init__(self, base_url: str = "http://localhost:8000"):
-        self.base_url = base_url.rstrip("/")
+    def __init__(self, base_url: str | None = "http://localhost:8000"):
+        self.base_url = base_url.rstrip("/") if base_url else None
+        self._use_local = self.base_url is None
 
     def predict(self, smiles_list: list[str]) -> dict:
         """Predict PC-SAFT parameters for a batch of molecules.
@@ -33,6 +35,58 @@ class PCSAFTClient:
             Prediction response with keys: predictions, model_name, model_version.
             On error, returns: {"error": str, "predictions": []}.
         """
+        # Local fallback mode
+        if self._use_local:
+            try:
+                from rdkit import Chem
+
+                import pcsaft_predict
+
+                logger.info("Using local pcsaft_predict library (no API)")
+
+                df = pcsaft_predict.predict_with_uncertainty(smiles_list)
+
+                # Convert DataFrame to API-compatible format
+                predictions = []
+                for _, row in df.iterrows():
+                    mol = Chem.MolFromSmiles(row["smiles"])
+                    is_valid = mol is not None
+
+                    # Check for association sites (OH, NH, COOH)
+                    is_associating = False
+                    if mol:
+                        smarts_patterns = ["[OH]", "[NH]", "[NH2]", "C(=O)[OH]"]
+                        is_associating = any(
+                            mol.HasSubstructMatch(Chem.MolFromSmarts(p))
+                            for p in smarts_patterns
+                        )
+
+                    predictions.append({
+                        "smiles": row["smiles"],
+                        "m": float(row["m"]),
+                        "sigma": float(row["sigma"]),
+                        "epsilon_k": float(row["epsilon_k"]),
+                        "valid": is_valid,
+                        "in_domain": bool(row["in_domain"]),
+                        "is_associating": is_associating,
+                        "tanimoto_nn": float(row["tanimoto_nn"]),
+                        "uncertainty": {
+                            "m_std": float(row["m_std"]),
+                            "sigma_std": float(row["sigma_std"]),
+                            "epsilon_k_std": float(row["epsilon_k_std"]),
+                        },
+                    })
+
+                return {
+                    "predictions": predictions,
+                    "model_name": "random_forest",
+                    "model_version": "local-1.0.0",
+                }
+            except Exception as e:
+                logger.error("Local prediction failed: %s", e)
+                return {"error": f"Local prediction error: {e}", "predictions": []}
+
+        # API mode
         try:
             resp = requests.post(
                 f"{self.base_url}/predict",
@@ -134,6 +188,52 @@ class PCSAFTClient:
             List of reference molecules with keys: name, smiles, m, sigma, epsilon_k, source.
             Returns empty list on error.
         """
+        # Local fallback mode - hardcoded common references
+        if self._use_local:
+            return [
+                {
+                    "name": "Cyclopentane",
+                    "smiles": "C1CCCC1",
+                    "m": 2.3655,
+                    "sigma": 3.7114,
+                    "epsilon_k": 288.84,
+                    "source": "Gross & Sadowski (2001)",
+                },
+                {
+                    "name": "R-134a",
+                    "smiles": "FC(F)C(F)F",
+                    "m": 2.696,
+                    "sigma": 3.174,
+                    "epsilon_k": 201.7,
+                    "source": "Tumakaka et al. (2002)",
+                },
+                {
+                    "name": "Ethyl acetate",
+                    "smiles": "CCOC(C)=O",
+                    "m": 2.870,
+                    "sigma": 3.307,
+                    "epsilon_k": 230.8,
+                    "source": "Gross & Sadowski (2001)",
+                },
+                {
+                    "name": "Benzene",
+                    "smiles": "c1ccccc1",
+                    "m": 2.465,
+                    "sigma": 3.648,
+                    "epsilon_k": 287.4,
+                    "source": "Gross & Sadowski (2001)",
+                },
+                {
+                    "name": "Toluene",
+                    "smiles": "Cc1ccccc1",
+                    "m": 2.816,
+                    "sigma": 3.717,
+                    "epsilon_k": 285.7,
+                    "source": "Gross & Sadowski (2001)",
+                },
+            ]
+
+        # API mode
         try:
             resp = requests.get(f"{self.base_url}/reference-molecules", timeout=5)
             resp.raise_for_status()
