@@ -1,10 +1,19 @@
-"""Download the ML-SAFT dataset from Figshare.
+"""Download the ML-SAFT dataset of PC-SAFT parameters.
 
-Felton et al., "Machine-Learned PC-SAFT Parameters", 2024.
-Figshare dataset: https://doi.org/10.6084/m9.figshare.24689738
+This script downloads a supplementary PC-SAFT parameters dataset to augment
+the Esper training set.
 
-The dataset contains ~988 molecules with PC-SAFT parameters (m, sigma, epsilon_k)
-curated specifically for ML prediction tasks.
+IMPORTANT — Dataset Source:
+    The Figshare article ID originally encoded here (24689738) resolves to an
+    unrelated soil-science dataset. Before running this script, verify the
+    correct source for the ML-SAFT or supplementary PC-SAFT dataset you want
+    to use. Candidate sources:
+      - Esper et al. supplementary data (same group, extended set)
+      - Rehner & Gross (2023) "FeOs" supplementary tables
+      - Any published PC-SAFT parameter table with SMILES identifiers
+
+    Update FIGSHARE_ARTICLE_URL below with the correct article ID, or
+    replace this script entirely with a direct CSV download.
 
 Usage:
     python -m model.data.download_mlsaft
@@ -70,14 +79,14 @@ def download_mlsaft() -> pd.DataFrame:
     filename = None
     for f in article.get("files", []):
         fname = f.get("name", "")
-        if fname.endswith((".csv", ".xlsx", ".zip")):
+        if fname.endswith((".csv", ".xlsx", ".xls", ".zip")):
             download_url = f["download_url"]
             filename = fname
             break
 
     if download_url is None:
         raise RuntimeError(
-            "No CSV/XLSX/ZIP file found in ML-SAFT Figshare article. "
+            "No CSV/XLSX/XLS/ZIP file found in ML-SAFT Figshare article. "
             f"Available files: {[f['name'] for f in article.get('files', [])]}"
         )
 
@@ -93,7 +102,7 @@ def download_mlsaft() -> pd.DataFrame:
         print(f"  Extracting {csv_names[0]} from zip...")
         with z.open(csv_names[0]) as f:
             df = pd.read_csv(f)
-    elif filename.endswith(".xlsx"):
+    elif filename.endswith((".xlsx", ".xls")):
         df = pd.read_excel(io.BytesIO(data_resp.content))
     else:
         df = pd.read_csv(io.StringIO(data_resp.text))
@@ -104,10 +113,13 @@ def download_mlsaft() -> pd.DataFrame:
     required = {"smiles", "m", "sigma", "epsilon_k"}
     missing = required - set(df.columns)
     if missing:
-        print(f"Warning: columns {missing} not found. Available: {list(df.columns)}")
-        print("Saving raw data; you may need to manually map columns.")
-        df.to_csv(OUTPUT_FILE, index=False)
-        return df
+        raise RuntimeError(
+            f"Downloaded file is missing required PC-SAFT columns: {missing}.\n"
+            f"Available columns: {list(df.columns)}\n"
+            "The Figshare article ID in this script may be incorrect. "
+            "Update FIGSHARE_ARTICLE_URL with the correct dataset source. "
+            "See the module docstring for guidance."
+        )
 
     keep = ["name", "smiles", "m", "sigma", "epsilon_k"]
     keep = [c for c in keep if c in df.columns]
