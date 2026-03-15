@@ -522,3 +522,44 @@ class ChemBERTaModel:
             # Fallback: mark all as in-domain if AD artifact missing
             logger.warning("ChemBERTa AD model not found; marking all as in-domain")
             return np.ones(len(smiles_list), dtype=bool)
+
+
+# ---------------------------------------------------------------------------
+# Ensemble wrapper (lazy-loads constituent models)
+# ---------------------------------------------------------------------------
+
+@register_model("ensemble")
+class EnsembleModel:
+    """Uncertainty-weighted ensemble of multiple PC-SAFT models.
+
+    Default constituents are RF + GNN (always available without heavy deps).
+    ChemBERTa is included if ``transformers`` is installed and weights exist.
+    """
+
+    def __init__(self):
+        self._ensemble = None
+
+    def load(self, model_names=None):
+        """Load constituent models via the WeightedEnsemble.
+
+        Parameters
+        ----------
+        model_names : list[str] | None
+            Registry names to include.  Defaults to ``["rf", "gnn"]``.
+        """
+        from model.ensemble.weighted import WeightedEnsemble
+
+        names = model_names or ["rf", "gnn"]
+        self._ensemble = WeightedEnsemble(names)
+
+    def predict(self, smiles_list):
+        """Return inverse-variance-weighted predictions."""
+        if self._ensemble is None:
+            self.load()
+        return self._ensemble.predict(smiles_list)
+
+    def predict_with_uncertainty(self, smiles_list):
+        """Return combined predictions and uncertainty estimates."""
+        if self._ensemble is None:
+            self.load()
+        return self._ensemble.predict_with_uncertainty(smiles_list)
