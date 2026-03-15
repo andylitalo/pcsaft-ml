@@ -185,6 +185,7 @@ async def predict(request: PredictionRequest):
                 epsilon_k=p["epsilon_k"],
                 uncertainty=uncertainty,
                 in_domain=p["in_domain"],
+                tanimoto_nn=p.get("tanimoto_nn"),
                 is_associating=p["is_associating"],
                 valid=p["valid"],
             )

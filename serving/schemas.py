@@ -37,6 +37,9 @@ class MoleculePrediction(BaseModel):
     in_domain: bool = Field(
         True, description="Whether molecule is within the applicability domain"
     )
+    tanimoto_nn: float | None = Field(
+        None, description="Max Tanimoto similarity to training set (0-1)"
+    )
     is_associating: bool = Field(
         False,
         description=(
