@@ -142,6 +142,28 @@ def render_prediction_page(api_client):
                             icon="⚠️",
                         )
 
+                    # Tanimoto similarity warning
+                    tanimoto = pred.get("tanimoto_nn")
+                    if tanimoto is not None:
+                        if tanimoto < 0.3:
+                            st.error(
+                                f"**Low similarity to training data** (Tanimoto={tanimoto:.3f}) — "
+                                "high prediction uncertainty expected.",
+                                icon="🚨",
+                            )
+                        elif tanimoto < 0.4:
+                            st.warning(
+                                f"**Moderate similarity to training data** "
+                                f"(Tanimoto={tanimoto:.3f}) — "
+                                "treat prediction with caution.",
+                                icon="⚠️",
+                            )
+                        else:
+                            st.success(
+                                f"**Good similarity to training data** (Tanimoto={tanimoto:.3f})",
+                                icon="✓",
+                            )
+
                     # Association warning
                     if pred.get("is_associating", False):
                         st.info(

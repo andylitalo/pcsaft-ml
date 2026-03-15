@@ -88,6 +88,15 @@ class TestPredictEndpoint:
         pred = resp.json()["predictions"][0]
         assert pred["is_associating"] is False
 
+    def test_predict_includes_tanimoto_nn(self, client):
+        """Test that predictions include Tanimoto similarity if TanimotoAD model is available."""
+        resp = client.post("/predict", json={"smiles": ["C1CCCC1"]})
+        assert resp.status_code == 200
+        pred = resp.json()["predictions"][0]
+        # tanimoto_nn may be None if model not available, or a float in [0, 1]
+        if pred["tanimoto_nn"] is not None:
+            assert 0.0 <= pred["tanimoto_nn"] <= 1.0
+
 
 class TestSubmitDataEndpoint:
     """Tests for POST /submit-data."""

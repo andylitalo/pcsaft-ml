@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 
 _AD_MODEL = None
 _AD_AVAILABLE = False
+_TANIMOTO_AD_MODEL = None
+_TANIMOTO_AD_AVAILABLE = False
 
 
 def _load_ad_model():
@@ -32,6 +34,27 @@ def _load_ad_model():
         )
 
 
+def _load_tanimoto_ad_model():
+    """Load Tanimoto AD model; return None on failure."""
+    global _TANIMOTO_AD_MODEL, _TANIMOTO_AD_AVAILABLE
+    try:
+        from pathlib import Path
+
+        import joblib
+
+        saved_dir = Path(__file__).resolve().parent.parent / "model" / "saved"
+        tanimoto_ad_path = saved_dir / "tanimoto_ad.joblib"
+        if not tanimoto_ad_path.exists():
+            raise FileNotFoundError(f"TanimotoAD model not found at {tanimoto_ad_path}")
+        _TANIMOTO_AD_MODEL = joblib.load(tanimoto_ad_path)
+        _TANIMOTO_AD_AVAILABLE = True
+        logger.info("TanimotoAD model loaded successfully")
+    except (FileNotFoundError, ImportError, Exception) as e:
+        _TANIMOTO_AD_MODEL = None
+        _TANIMOTO_AD_AVAILABLE = False
+        logger.info("TanimotoAD model not available: %s", e)
+
+
 class ModelServer:
     """Wraps a registry model with prediction, uncertainty, and AD logic."""
 
@@ -43,6 +66,9 @@ class ModelServer:
         # Load descriptor-space AD for RF and NN
         if model_type in {"rf", "nn"}:
             _load_ad_model()
+
+        # Load TanimotoAD for all model types
+        _load_tanimoto_ad_model()
 
         self._warmup()
         logger.info("ModelServer ready: model_type=%s", model_type)
@@ -96,6 +122,16 @@ class ModelServer:
         # Association check
         from screening.filters import is_associating
 
+        # Compute Tanimoto similarity if model is available
+        tanimoto_nn_values = [None] * len(smiles_list)
+        if _TANIMOTO_AD_AVAILABLE and _TANIMOTO_AD_MODEL is not None:
+            try:
+                for i, smi in enumerate(smiles_list):
+                    if valid_mask[i]:
+                        tanimoto_nn_values[i] = _TANIMOTO_AD_MODEL.tanimoto_nn(smi)
+            except Exception:
+                logger.exception("TanimotoAD computation failed; setting all to None")
+
         predictions = []
         for i, smi in enumerate(smiles_list):
             if not valid_mask[i] or not np.isfinite(result["m"][i]):
@@ -107,6 +143,7 @@ class ModelServer:
                         "epsilon_k": 0.0,
                         "uncertainty": None,
                         "in_domain": False,
+                        "tanimoto_nn": None,
                         "is_associating": False,
                         "valid": False,
                     }
@@ -133,6 +170,7 @@ class ModelServer:
                     "epsilon_k": float(result["epsilon_k"][i]),
                     "uncertainty": uncertainty,
                     "in_domain": bool(in_domain[i]),
+                    "tanimoto_nn": tanimoto_nn_values[i],
                     "is_associating": is_associating(smi),
                     "valid": True,
                 }
