@@ -1,0 +1,8 @@
+stage,count
+Initial candidates,10700
+Boiling point [288-323K],1190
+Has C=C bond,10700
+No chlorine,2558
+F count >= 2,10132
+SA score <= 4.5,4663
+Final (all filters),785
