@@ -152,6 +152,7 @@ def build_features(
     morgan_radius: int = 2,
     morgan_bits: int = 2048,
     rdkit_names: list[str] | None = None,
+    use_gc_pcsaft: bool = False,
 ) -> np.ndarray:
     """Build a combined feature matrix from SMILES.
 
@@ -174,14 +175,19 @@ def build_features(
         Pre-determined RDKit descriptor column names from training.
         When provided, skips clean_descriptors and selects these columns
         directly for consistent inference.
+    use_gc_pcsaft : bool
+        Include GC-PC-SAFT predicted parameters (m, sigma, epsilon_k) as
+        additional features (default False). When True, adds 3 features.
 
     Returns
     -------
     np.ndarray
         2D array of shape (n_molecules, n_features) with no NaN values.
     """
-    if not use_morgan and not use_rdkit:
-        raise ValueError("At least one of use_morgan or use_rdkit must be True")
+    if not use_morgan and not use_rdkit and not use_gc_pcsaft:
+        raise ValueError(
+            "At least one of use_morgan, use_rdkit, or use_gc_pcsaft must be True"
+        )
 
     parts = []
     if use_morgan:
@@ -189,6 +195,12 @@ def build_features(
     if use_rdkit:
         arr, _ = _get_rdkit_features(smiles_list, rdkit_names)
         parts.append(arr)
+    if use_gc_pcsaft:
+        from model.gc_pcsaft import predict_gc_pcsaft
+
+        gc_df = predict_gc_pcsaft(smiles_list)
+        gc_features = gc_df[["m", "sigma", "epsilon_k"]].fillna(0).values.astype(np.float32)
+        parts.append(gc_features)
     return np.hstack(parts)
 
 
@@ -199,6 +211,7 @@ def build_features_with_names(
     morgan_radius: int = 2,
     morgan_bits: int = 2048,
     rdkit_names: list[str] | None = None,
+    use_gc_pcsaft: bool = False,
 ) -> tuple[np.ndarray, list[str]]:
     """Build a combined feature matrix and return feature names.
 
@@ -221,6 +234,9 @@ def build_features_with_names(
         Pre-determined RDKit descriptor column names from training.
         When provided, skips clean_descriptors and selects these columns
         directly for consistent inference.
+    use_gc_pcsaft : bool
+        Include GC-PC-SAFT predicted parameters (m, sigma, epsilon_k) as
+        additional features (default False). When True, adds 3 features.
 
     Returns
     -------
@@ -228,8 +244,10 @@ def build_features_with_names(
         (features, names) where features is shape (n_molecules, n_features)
         and names is a list of feature name strings.
     """
-    if not use_morgan and not use_rdkit:
-        raise ValueError("At least one of use_morgan or use_rdkit must be True")
+    if not use_morgan and not use_rdkit and not use_gc_pcsaft:
+        raise ValueError(
+            "At least one of use_morgan, use_rdkit, or use_gc_pcsaft must be True"
+        )
 
     parts = []
     names = []
@@ -240,5 +258,12 @@ def build_features_with_names(
         arr, rdkit_cols = _get_rdkit_features(smiles_list, rdkit_names)
         parts.append(arr)
         names += rdkit_cols
+    if use_gc_pcsaft:
+        from model.gc_pcsaft import predict_gc_pcsaft
+
+        gc_df = predict_gc_pcsaft(smiles_list)
+        gc_features = gc_df[["m", "sigma", "epsilon_k"]].fillna(0).values.astype(np.float32)
+        parts.append(gc_features)
+        names += ["gc_m", "gc_sigma", "gc_epsilon_k"]
     features = np.hstack(parts)
     return features, names
