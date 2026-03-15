@@ -170,8 +170,6 @@ class TestComponents:
         from portal.components import predictor
 
         assert hasattr(predictor, "render_prediction_page")
-        assert hasattr(predictor, "CYCLOPENTANE_REF")
-        assert predictor.CYCLOPENTANE_REF["m"] == 2.3655
 
     def test_submitter_module_imports(self):
         """Test that submitter module and functions exist."""
@@ -185,12 +183,10 @@ class TestComponents:
 
         assert hasattr(dashboard, "render_dashboard")
 
-    def test_cyclopentane_comparison_logic(self):
-        """Test the cyclopentane comparison calculation."""
-        from portal.components.predictor import CYCLOPENTANE_REF
-
-        # Test calculation logic
-        ref_m = CYCLOPENTANE_REF["m"]
+    def test_reference_comparison_logic(self):
+        """Test the reference molecule comparison calculation."""
+        # Test calculation logic with example values
+        ref_m = 2.3655
         pred_m = 2.5
 
         pct_diff = abs(pred_m - ref_m) / ref_m * 100

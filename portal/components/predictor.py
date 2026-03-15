@@ -7,9 +7,6 @@ import streamlit as st
 
 from portal.components.molecule import render_molecule
 
-# Cyclopentane reference values from literature
-CYCLOPENTANE_REF = {"m": 2.3655, "sigma": 3.7114, "epsilon_k": 288.84}
-
 
 def render_prediction_page(api_client):
     """Render the prediction input/output page.
@@ -24,9 +21,49 @@ def render_prediction_page(api_client):
     st.markdown(
         """
         Enter molecular SMILES strings to predict PC-SAFT equation-of-state parameters.
-        Results are compared to **cyclopentane** (a common blowing agent reference).
+        Results are compared to a reference molecule of your choice.
         """
     )
+
+    # Level 2: Reference molecule selection
+    st.subheader("Select Reference Molecule")
+    ref_molecules = api_client.get_reference_molecules()
+
+    if not ref_molecules:
+        st.warning(
+            "Could not load reference molecules. Using default (Cyclopentane). "
+            "Make sure the API server is running."
+        )
+        ref_m, ref_sigma, ref_eps = 2.3655, 3.7114, 288.84
+        ref_name = "Cyclopentane"
+    else:
+        ref_names = ["Custom..."] + [m["name"] for m in ref_molecules]
+        selected = st.selectbox(
+            "Compare against:",
+            ref_names,
+            index=ref_names.index("Cyclopentane")
+            if "Cyclopentane" in ref_names
+            else 1,
+        )
+
+        if selected == "Custom...":
+            # Level 1: Custom parameter inputs
+            with st.expander("Custom reference parameters", expanded=True):
+                ref_m = st.number_input("m (segments)", value=2.3655, step=0.01, min_value=0.1)
+                ref_sigma = st.number_input(
+                    "σ (Å)", value=3.7114, step=0.01, min_value=0.1
+                )
+                ref_eps = st.number_input(
+                    "ε/k (K)", value=288.84, step=1.0, min_value=1.0
+                )
+                ref_name = "Custom"
+        else:
+            mol = next(m for m in ref_molecules if m["name"] == selected)
+            ref_m, ref_sigma, ref_eps = mol["m"], mol["sigma"], mol["epsilon_k"]
+            ref_name = selected
+            st.caption(f"SMILES: `{mol['smiles']}` | Source: {mol['source']}")
+
+    st.divider()
 
     # Input methods: text area or CSV upload
     input_method = st.radio("Input method", ["Enter SMILES", "Upload CSV"], horizontal=True)
@@ -96,29 +133,36 @@ def render_prediction_page(api_client):
                 with col2:
                     st.markdown(f"**SMILES**: `{pred['smiles']}`")
 
-                    # Applicability domain warning
-                    if not pred.get("in_domain", True):
-                        st.warning("⚠️ Molecule may be outside model's applicability domain")
+                    # OOD warning banner
+                    if pred.get("in_domain") is False:
+                        st.warning(
+                            "**Out-of-domain**: This molecule is outside the training "
+                            "distribution. Predictions may be unreliable. Treat results "
+                            "with extra caution.",
+                            icon="⚠️",
+                        )
 
                     # Association warning
                     if pred.get("is_associating", False):
                         st.info(
-                            "ℹ️ Molecule has association sites (OH, NH, COOH). "
+                            "Molecule has association sites (OH, NH, COOH). "
                             "3-parameter PC-SAFT may be insufficient; "
-                            "consider using the association variant."
+                            "consider using the association variant.",
+                            icon="ℹ️",
                         )
 
-                    # Show predictions with comparison to cyclopentane
+                    # Show predictions with comparison to reference molecule
                     param_names = {
                         "m": "m (segments)",
                         "sigma": "σ (Å)",
                         "epsilon_k": "ε/k (K)",
                     }
+                    ref_values = {"m": ref_m, "sigma": ref_sigma, "epsilon_k": ref_eps}
 
                     metric_cols = st.columns(3)
                     for idx, param in enumerate(["m", "sigma", "epsilon_k"]):
                         pred_value = pred.get(param)
-                        ref_value = CYCLOPENTANE_REF[param]
+                        ref_value = ref_values[param]
 
                         if pred_value is not None:
                             pct_diff = abs(pred_value - ref_value) / ref_value * 100
@@ -126,7 +170,7 @@ def render_prediction_page(api_client):
                             metric_cols[idx].metric(
                                 label=param_names[param],
                                 value=f"{pred_value:.4f}",
-                                delta=f"{pct_diff:.1f}% diff from C5H10",
+                                delta=f"{pct_diff:.1f}% diff from {ref_name}",
                                 delta_color="inverse",
                             )
 
