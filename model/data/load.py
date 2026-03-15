@@ -14,6 +14,7 @@ DATA_DIR = Path(__file__).parent
 FALLBACK_CSV = DATA_DIR / "pcsaft_data.csv"
 ESPER_CSV = DATA_DIR / "esper_pcsaft.csv"
 MLSAFT_CSV = DATA_DIR / "mlsaft_pcsaft.csv"
+FLUORINATED_CSV = DATA_DIR / "fluorinated_pcsaft.csv"
 
 TARGETS = ["m", "sigma", "epsilon_k"]
 
@@ -47,11 +48,11 @@ def deduplicate_by_inchi(df: pd.DataFrame, smiles_col: str = "smiles") -> pd.Dat
 
 
 def _load_combined() -> pd.DataFrame:
-    """Load both Esper and ML-SAFT datasets and merge with InChI deduplication.
+    """Load Esper, ML-SAFT, and fluorinated datasets with InChI deduplication.
 
     When duplicates exist with conflicting parameter values (same molecule,
-    different m/sigma/epsilon_k), Esper values are preferred (larger, more
-    systematically fitted dataset).
+    different m/sigma/epsilon_k), Esper values are preferred, then ML-SAFT,
+    then fluorinated (priority order: esper > mlsaft > fluorinated).
 
     Returns
     -------
@@ -74,6 +75,13 @@ def _load_combined() -> pd.DataFrame:
         dfs.append(mlsaft_df)
         logger.info("Loaded ML-SAFT dataset: %d molecules", len(mlsaft_df))
 
+    if FLUORINATED_CSV.exists():
+        fluorinated_df = pd.read_csv(FLUORINATED_CSV)
+        fluorinated_df = fluorinated_df.dropna(subset=["smiles", "m", "sigma", "epsilon_k"])
+        fluorinated_df["_source"] = "fluorinated"
+        dfs.append(fluorinated_df)
+        logger.info("Loaded fluorinated dataset: %d molecules", len(fluorinated_df))
+
     if not dfs:
         raise FileNotFoundError(
             "No datasets found. Run: python -m model.data.download_esper "
@@ -84,10 +92,10 @@ def _load_combined() -> pd.DataFrame:
         df = dfs[0].drop(columns=["_source"], errors="ignore")
         return df
 
-    # Concat with Esper first so it takes priority in deduplication
+    # Concat with priority: Esper > ML-SAFT > fluorinated
     combined = pd.concat(dfs, ignore_index=True)
-    # Sort so Esper rows come first (preferred in case of duplicate InChIs)
-    combined = combined.sort_values("_source", ascending=True)  # esper < mlsaft
+    # Sort so higher-priority sources come first (esper < fluorinated < mlsaft alphabetically)
+    combined = combined.sort_values("_source", ascending=True)
     combined = deduplicate_by_inchi(combined)
     combined = combined.drop(columns=["_source"], errors="ignore")
 
@@ -101,24 +109,32 @@ def load_data(source: str = "auto") -> pd.DataFrame:
     Parameters
     ----------
     source : str
-        "esper" to use Esper dataset, "fallback" for curated CSV,
-        "combined" to load both Esper + ML-SAFT with deduplication,
-        "auto" to prefer combined if both exist, else Esper, else fallback.
+        "esper" to use Esper dataset,
+        "mlsaft" to use ML-SAFT dataset,
+        "fluorinated" to use fluorinated compounds only,
+        "fallback" for curated CSV,
+        "combined" to load all available with deduplication,
+        "auto" to prefer combined if multiple exist, else single source, else fallback.
 
     Returns
     -------
     pd.DataFrame
-        DataFrame with columns: smiles, m, sigma, epsilon_k (and optionally name).
+        DataFrame with columns: smiles, m, sigma, epsilon_k (and optionally name, source).
     """
     if source == "combined":
         return _load_combined()
 
     if source == "auto":
-        # Prefer combined if both datasets exist
-        if ESPER_CSV.exists() and MLSAFT_CSV.exists():
+        # Prefer combined if multiple datasets exist
+        available = sum([ESPER_CSV.exists(), MLSAFT_CSV.exists(), FLUORINATED_CSV.exists()])
+        if available >= 2:
             return _load_combined()
         elif ESPER_CSV.exists():
             path = ESPER_CSV
+        elif MLSAFT_CSV.exists():
+            path = MLSAFT_CSV
+        elif FLUORINATED_CSV.exists():
+            path = FLUORINATED_CSV
         else:
             path = FALLBACK_CSV
     elif source == "esper":
@@ -127,6 +143,19 @@ def load_data(source: str = "auto") -> pd.DataFrame:
                 f"{ESPER_CSV} not found. Run: python -m model.data.download_esper"
             )
         path = ESPER_CSV
+    elif source == "mlsaft":
+        if not MLSAFT_CSV.exists():
+            raise FileNotFoundError(
+                f"{MLSAFT_CSV} not found. Run: python -m model.data.download_mlsaft"
+            )
+        path = MLSAFT_CSV
+    elif source == "fluorinated":
+        if not FLUORINATED_CSV.exists():
+            raise FileNotFoundError(
+                f"{FLUORINATED_CSV} not found. Generate with: "
+                "python scripts/generate_fluorinated_data.py"
+            )
+        path = FLUORINATED_CSV
     else:
         path = FALLBACK_CSV
 
