@@ -378,3 +378,50 @@ envelope, and Pareto frontier.
 capstone (22–23) all finished.
 
 ---
+
+## 2026-03-16: Steps 38b–38d — GNN vs RF Resolution (Completed)
+
+Step 38 revealed GNN catastrophic failure on fluorinated compounds (bp MAE 133.7 K vs
+RF's 8.2 K). Three follow-up steps resolved the model selection question:
+
+**Step 38b (RF HFO Screening Rerun)**: Re-ran full 7-filter cascade with RF. 50 candidates
+pass (vs 65 for GNN). RF bp MAE confirmed at 8.17 K on 15-compound validation set.
+
+**Step 38c (GNN Retrain on Esper-Only)**: Retrained GNN excluding SPT data. bp MAE = 142.3 K
+(WORSE than unified 133.7 K). Confirms failure is architectural, not data contamination.
+
+**Step 38d (RF vs GNN Comparison)**: Formal 3-way comparison. RF wins 16.4x on bp MAE.
+RF epsilon_k 1-sigma coverage = 80% vs GNN's 7%. Updated CRITICAL_FINDING.md with resolution.
+
+**Decision**: RF selected for all fluorinated screening. Steps 39–42 proceed with RF.
+
+---
+
+## 2026-03-16: Steps 39–42 — Screening Arc (Completed)
+
+**Step 39 (Uncertainty-Aware AD Screening)**: Augmented 50 RF candidates with Tanimoto AD
+(64% in_domain, 34% warning, 2% ood), tree-ensemble uncertainty (mean CV 0.098), rank
+stability (500 perturbation draws), and credibility labels (42% screening_ready, 56% warning,
+2% high_risk). Rankings inherently unstable due to tightly clustered HFO distances.
+
+**Step 40 (EOS Property Validation)**: Multi-temperature EOS at 273/298/323 K. 49/50 converge
+(98%). Key finding: **0/50 pass all thermodynamic gates**. All candidates have property-space
+distance > 1.0. Median VP ratio = 3.6x cyclopentane. **Negative parameter-property correlation
+(r = -0.709)**: parameter proximity does NOT predict property proximity for HFOs.
+
+**Step 41 (Safety & Environmental Gate)**: 50/50 pass (100%). All score 5/5 safety. 46 ultra-low
+GWP, 4 low GWP. All A1 (non-flammable). Zero reactive sites or toxicity flags.
+
+**Step 42 (Final Candidate Dossier)**: Capstone synthesis. Multi-criteria dossier scores (36–70).
+4 Tier 1 candidates (score >= 70), 43 Tier 2, 3 Tier 3. Top candidate:
+F/C=C\C(F)(F)[C@@H](F)C(F)(F)F (C5H3F7, dossier score 70.3, VP ratio 2.4x cyclopentane).
+
+**Fundamental finding**: No HFO/HCFO is a drop-in replacement for cyclopentane. Fluorinated
+compounds occupy a fundamentally different region of thermodynamic property space. The pipeline
+correctly identifies this, validating the methodology even though the screening outcome is negative.
+
+**Current test count**: 351 passing (3 pre-existing failures), ruff clean.
+
+**ALL PHASES COMPLETE.** Phase 1 (01–09), Phase 2 (10–23), Phase 3 (24–42) all finished.
+
+---

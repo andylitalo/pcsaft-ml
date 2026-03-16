@@ -545,3 +545,129 @@ steps:
       hpa_max_replicas: 5
       n_new_tests: 6
     approved: true
+  36_gnn_distributable_package:
+    status: completed
+    artifacts:
+      - pcsaft_predict/gnn_model.py
+      - pcsaft_predict/pyproject.toml (updated)
+      - tests/test_pcsaft_predict.py (updated)
+      - docs/reports/36_gnn_distributable_package.md
+    metrics:
+      n_api_functions: 6
+      n_tests: 295
+    approved: true
+  37_gnn_hfo_screening:
+    status: completed
+    artifacts:
+      - scripts/step37_gnn_hfo_screening.py
+      - screening/results/hfo_gnn_ranked.csv
+      - figures/37_gnn_hfo_screening/
+      - docs/reports/37_gnn_hfo_screening.md
+    metrics:
+      n_gnn_candidates: 65
+      n_figures: 4
+    approved: true
+  38_gnn_fluorinated_validation:
+    status: completed
+    artifacts:
+      - scripts/step38_gnn_fluorinated_validation.py
+      - docs/reports/38_CRITICAL_FINDING.md
+      - figures/38_gnn_fluorinated_validation/
+    metrics:
+      gnn_bp_mae_K: 133.7
+      rf_bp_mae_K: 8.2
+      finding: gnn_catastrophic_failure_on_fluorinated
+    approved: true
+  38b_rf_hfo_screening_rerun:
+    status: completed
+    artifacts:
+      - scripts/step38b_rf_hfo_screening.py
+      - screening/results/hfo_rf_ranked.csv
+      - figures/38b_rf_hfo_screening/
+      - docs/reports/38b_rf_hfo_screening_rerun.md
+    metrics:
+      n_rf_candidates: 50
+      rf_bp_mae_K: 8.17
+      n_overlap_with_gnn: 39
+    approved: true
+  38c_gnn_experimental_retrain:
+    status: completed
+    artifacts:
+      - scripts/step38c_gnn_experimental_retrain.py
+      - model/saved/gnn_esper_metrics.json
+      - figures/38c_gnn_experimental_retrain/
+      - docs/reports/38c_gnn_experimental_retrain.md
+    metrics:
+      gnn_esper_bp_mae_K: 142.3
+      finding: architectural_limitation_confirmed
+    approved: true
+  38d_rf_vs_gnn_comparison:
+    status: completed
+    artifacts:
+      - scripts/step38d_rf_vs_gnn_comparison.py
+      - model/saved/step38d_rf_vs_gnn_comparison.json
+      - figures/38d_rf_vs_gnn_comparison/
+      - docs/reports/38d_rf_vs_gnn_comparison.md
+      - docs/reports/38_CRITICAL_FINDING.md (updated with resolution)
+    metrics:
+      rf_bp_mae_K: 8.17
+      gnn_esper_bp_mae_K: 142.3
+      gnn_unified_bp_mae_K: 133.7
+      decision: rf_selected_for_fluorinated_screening
+    approved: true
+  39_uncertainty_ad_screening:
+    status: completed
+    artifacts:
+      - scripts/step39_uncertainty_ad_screening.py
+      - screening/results/hfo_rf_shortlist_credibility.csv
+      - figures/39_uncertainty_ad_screening/
+      - docs/reports/39_uncertainty_ad_screening.md
+    metrics:
+      n_screening_ready: 21
+      n_screening_with_warning: 28
+      n_high_extrapolation_risk: 1
+      mean_tanimoto_nn: 0.450
+      mean_composite_cv: 0.098
+    approved: true
+  40_eos_property_validation:
+    status: completed
+    artifacts:
+      - scripts/step40_eos_property_validation.py
+      - screening/results/hfo_rf_thermo_validated.csv
+      - figures/40_eos_property_validation/
+      - docs/reports/40_eos_property_validation.md
+    metrics:
+      eos_convergence_3T: 49_of_50
+      vp_ratio_gate_pass: 8_of_50
+      all_thermo_gates_pass: 0_of_50
+      param_property_correlation: -0.709
+    approved: true
+  41_safety_environmental_gate:
+    status: completed
+    artifacts:
+      - scripts/step41_safety_environmental_gate.py
+      - screening/results/hfo_rf_safety_assessed.csv
+      - figures/41_safety_environmental_gate/
+      - docs/reports/41_safety_environmental_gate.md
+    metrics:
+      safety_pass_rate: 1.0
+      n_ultra_low_gwp: 46
+      n_low_gwp: 4
+      all_a1_flammability: true
+    approved: true
+  42_final_candidate_dossier:
+    status: completed
+    artifacts:
+      - scripts/step42_final_candidate_dossier.py
+      - screening/results/hfo_rf_final_dossier.csv
+      - screening/results/hfo_rf_top10_dossier_cards.csv
+      - figures/42_final_candidate_dossier/
+      - docs/reports/42_final_candidate_dossier.md
+    metrics:
+      n_tier1: 4
+      n_tier2: 43
+      n_tier3: 3
+      top_score: 70.3
+      top_candidate: "F/C=C\\C(F)(F)[C@@H](F)C(F)(F)F"
+      finding: no_fluorinated_dropin_for_cyclopentane
+    approved: true
