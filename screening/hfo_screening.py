@@ -16,6 +16,11 @@ from rdkit.Contrib.SA_Score import sascorer
 from scipy.optimize import brentq
 
 from model.thermodynamic import compute_properties
+from screening.filters import (
+    count_cf3_groups,
+    has_reactive_fluorine,
+    passes_fluorine_mass_fraction,
+)
 
 # HFO-1336mzz(Z) reference (Konnova 2014)
 HFO_1336MZZ = {
@@ -184,14 +189,18 @@ def apply_hfo_filters(df):
     3. No chlorine (Cl-free)
     4. At least 2 fluorine atoms
     5. SA score ≤ 4.5
+    6. Fluorine mass fraction >= 65%
+    7. No reactive fluorination sites
 
     Args:
         df: DataFrame with columns: smiles, boiling_point_K, sa_score (optional)
 
     Returns:
         tuple: (filtered_df, filter_stats_dict)
+            filtered_df has added column cf3_count for ranking
             filter_stats_dict has keys: boiling_point, has_double_bond,
-                                        no_chlorine, fluorine_count, sa_score, total
+                                        no_chlorine, fluorine_count, sa_score,
+                                        fluorine_mass_fraction, no_reactive_sites, total
     """
     initial_count = len(df)
 
@@ -247,11 +256,26 @@ def apply_hfo_filters(df):
         mask_sa = sa_scores <= 4.5
         stats["sa_score"] = mask_sa.sum()
 
+    # Filter 6: Fluorine mass fraction >= 65%
+    mask_f_mass = df["smiles"].apply(lambda s: passes_fluorine_mass_fraction(s, threshold=0.65))
+    stats["fluorine_mass_fraction"] = mask_f_mass.sum()
+
+    # Filter 7: No reactive fluorination sites
+    def is_safe(smiles):
+        has_reactive, _ = has_reactive_fluorine(smiles)
+        return not has_reactive
+
+    mask_no_reactive = df["smiles"].apply(is_safe)
+    stats["no_reactive_sites"] = mask_no_reactive.sum()
+
     # Combine all filters
-    final_mask = mask_bp & mask_cc & mask_no_cl & mask_f & mask_sa
+    final_mask = mask_bp & mask_cc & mask_no_cl & mask_f & mask_sa & mask_f_mass & mask_no_reactive
     stats["total"] = final_mask.sum()
 
     filtered = df[final_mask].copy()
+
+    # Add CF3 count column for ranking (not a hard filter)
+    filtered["cf3_count"] = filtered["smiles"].apply(count_cf3_groups)
 
     print("\nHFO Filter Results:")
     print(f"  Initial candidates: {initial_count}")
@@ -260,6 +284,8 @@ def apply_hfo_filters(df):
     print(f"  No chlorine: {stats['no_chlorine']}")
     print(f"  F count >= 2: {stats['fluorine_count']}")
     print(f"  SA score <= 4.5: {stats['sa_score']}")
+    print(f"  Fluorine mass fraction >= 65%: {stats['fluorine_mass_fraction']}")
+    print(f"  No reactive fluorination sites: {stats['no_reactive_sites']}")
     print(f"  Final passing all filters: {stats['total']}")
 
     return filtered, stats
