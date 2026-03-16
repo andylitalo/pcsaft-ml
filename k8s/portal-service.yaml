@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: pcsaft-portal
+  namespace: pcsaft
+spec:
+  selector:
+    app: pcsaft-portal
+  ports:
+  - port: 80
+    targetPort: 8501
+  type: ClusterIP

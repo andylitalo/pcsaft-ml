@@ -4,7 +4,7 @@ metadata:
   name: pcsaft-config
   namespace: pcsaft
 data:
-  PCSAFT_MODEL_TYPE: "rf"
+  PCSAFT_MODEL_TYPE: "gnn"
   PCSAFT_SUBMISSIONS_PATH: "/app/serving/submissions/submissions.csv"
   PCSAFT_HOST: "0.0.0.0"
   PCSAFT_PORT: "8000"

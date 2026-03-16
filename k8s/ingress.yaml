@@ -1,0 +1,20 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pcsaft-ingress
+  namespace: pcsaft
+  annotations:
+    # For GKE managed certificates:
+    # networking.gke.io/managed-certificates: pcsaft-cert
+    # For kind/local testing, no annotations needed
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: pcsaft-portal
+            port:
+              number: 80
