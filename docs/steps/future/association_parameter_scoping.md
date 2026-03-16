@@ -1,31 +1,35 @@
-# Step 35: Association Parameter Milestone Scoping
+# Future Work: Association Parameter Milestone Scoping
+
+> **Status**: Long-term research milestone. Not part of the current numbered step sequence.
+> Deferral is the expected outcome of the gating analysis below.
+> Revisit only after the hosted non-associating product (Steps 31-34) is stable.
 
 ## Objective
 
-Scope out the requirements, data availability, and architecture for predicting associating PC-SAFT parameters (ε_AB, κ_AB) as a **separate, clearly gated milestone**. This step produces a research plan document, not code. It also adds explicit limitations notices to the portal UI for associating molecules.
+Produce a formal go/no-go memo on whether predicting associating PC-SAFT parameters (ε_AB, κ_AB) should remain deferred. This is primarily a scope-protection and limitations-documentation exercise, not a commitment to build a five-parameter model next. It may refresh the portal warning for associating molecules if the existing notice is not prominent enough.
 
 ## Motivation
 
 The current pipeline predicts only three non-associating PC-SAFT parameters (m, σ, ε/k). Molecules with hydrogen-bonding sites (OH, NH, COOH, etc.) require two additional association parameters (ε_AB, κ_AB) for accurate thermodynamic modeling. The existing `is_associating()` utility in `screening/filters.py` flags these molecules but offers no prediction capability.
 
-Previous steps (Reports 25, 28) mentioned this limitation but mixed it into the screening narrative rather than treating it as a distinct, properly scoped milestone. The Hosted UI Pivot plan recommended separating this into its own phase with explicit go/no-go criteria.
+Previous steps and `docs/limitations.md` already treat this as out of scope for the main product. The purpose of this milestone is to make that decision explicit and evidence-based so the hosted portal does not drift into half-supported associating chemistry.
 
-Key questions this step answers:
+Key questions this milestone answers:
 1. How many molecules with association parameters exist in accessible databases?
 2. Does teqp (or an alternative EOS backend) support associating PC-SAFT?
 3. What model architecture changes are needed for 5-parameter prediction?
-4. What is a realistic timeline and dataset size threshold to attempt this?
+4. Is there enough evidence to justify changing scope, or should association remain deferred?
 
 ## Dependencies
 
 - `screening/filters.py` exists with `is_associating()` function
 - `serving/model_loader.py` exists with association warning logic
 - `portal/app.py` or `portal/components/predictor.py` exists
-- No dependency on Steps 31-34 (can run in parallel with anything)
+- No dependency on numbered steps for the memo itself, but any decision to expand scope should not compete with the main hosted-product path until the Cloud Run deployment is stable
 
 ## Implementation Guide
 
-### 35.1 Survey available training data
+### Survey available training data
 
 Research and document available sources of experimental association parameters:
 
@@ -44,15 +48,15 @@ For each source, record:
 
 **Expected finding**: Sparse data. Most PC-SAFT parameter compilations report association parameters for 200-500 molecules (primarily alcohols, carboxylic acids, amines, and water). This is far less than the 13,764 non-associating training set.
 
-### 35.2 Assess EOS backend support
+### Assess EOS backend support
 
-Check teqp's capabilities for associating PC-SAFT:
+Check teqp's capabilities for associating PC-SAFT. Verify the actual Python API (the constructor syntax may differ from keyword arguments):
 
 ```python
 import teqp
 
 # Test if teqp supports association parameters
-# Try creating a PC-SAFT model with association scheme
+# Verify actual API against teqp docs before relying on this example
 model = teqp.PCSAFTEOS(
     m=[2.0], sigma=[3.5], epsilon_k=[200.0],
     epsilon_AB=[2500.0], kappa_AB=[0.03],
@@ -66,9 +70,9 @@ Document:
 - Are there numerical stability issues with VLE calculations for associating systems?
 - If teqp does not support association, what alternatives exist? (e.g., FeOs, CoolProp, SAFT-gamma-Mie via Clapeyron.jl)
 
-### 35.3 Define model architecture requirements
+### Define model architecture requirements
 
-If/when association prediction is attempted, document the architecture options:
+If association prediction were attempted later, document the architecture options:
 
 **Option A: Separate model**
 - Train a dedicated classifier for association scheme (none, 1A, 2B, 3B, 4C)
@@ -89,9 +93,9 @@ If/when association prediction is attempted, document the architecture options:
 - Pro: Leverages existing learned representations
 - Con: Small fine-tuning dataset may cause overfitting
 
-Recommend an architecture with rationale.
+Recommend an architecture only as part of the memo. Do not frame this as the next scheduled implementation unless the gates below are convincingly met.
 
-### 35.4 Define gating criteria
+### Define gating criteria
 
 Write explicit go/no-go criteria for starting the association parameter phase:
 
@@ -101,28 +105,30 @@ Write explicit go/no-go criteria for starting the association parameter phase:
 | Association scheme diversity | >= 3 scheme types represented | Avoid overfitting to a single scheme (e.g., all 2B) |
 | Data license | Permissive (CC-BY or MIT) | Must be redistributable |
 | EOS backend support | teqp or alternative supports associating PC-SAFT | Cannot validate predictions without EOS |
-| Non-associating model stable | Step 31 complete, GNN R² >= 0.73 | Don't risk degrading the primary model |
+| Property-level usefulness | Clear plan to show improvement in VLE, density, Henry's constant, or other downstream thermodynamic targets | Parameter prediction alone is not enough |
+| Non-associating product stable | Cloud Run deployment complete and stable | Don't dilute the primary deliverable |
 
-If any gate is not met, the milestone is **deferred** with a documented reason.
+If any gate is not met, the milestone is **deferred** with a documented reason. Deferral is an acceptable and likely outcome.
 
-### 35.5 Write research plan
+### Write decision memo / research plan
 
 Produce `docs/association_parameter_plan.md` containing:
 
-1. **Data survey results** (from 35.1)
-2. **EOS backend assessment** (from 35.2)
-3. **Architecture recommendation** (from 35.3)
-4. **Go/no-go evaluation** against gating criteria (from 35.4)
-5. **Timeline estimate**: If gates are met, estimate:
+1. **Data survey results**
+2. **EOS backend assessment**
+3. **Architecture recommendation**
+4. **Go/no-go evaluation** against gating criteria
+5. **Recommendation**: one of `defer`, `revisit after hosted release`, or `proceed to a dedicated research phase`
+6. **Timeline estimate**: If gates are met, estimate:
    - Data collection and cleaning: 1-2 days
    - Model training and evaluation: 1-2 days
    - Integration into serving/portal: 1 day
    - Total: ~1 week
-6. **Risk register**: What could go wrong (data too sparse, EOS instability, model degradation)
+7. **Risk register**: What could go wrong (data too sparse, EOS instability, model degradation)
 
-### 35.6 Add limitations notice to portal
+### Refresh limitations notice in portal if needed
 
-Update `portal/components/predictor.py` to show a visible warning when the user submits a molecule that `is_associating()` returns True for:
+Check the existing associating-molecule notice first. If it is missing or too subtle, update `portal/components/predictor.py` to show a visible warning when the user submits a molecule that `is_associating()` returns True for:
 
 ```python
 from screening.filters import is_associating
@@ -136,24 +142,14 @@ if is_associating(smiles):
     )
 ```
 
-Check if a similar warning already exists. If so, ensure it is prominent and uses `st.warning()` (not just a footnote).
-
-### 35.7 Report
-
-Write `docs/reports/35_association_parameter_scoping.md` summarizing:
-- Data survey findings
-- EOS backend assessment
-- Architecture recommendation
-- Go/no-go evaluation
-- Portal limitation notice added
+Check if a similar warning already exists. If so, prefer updating wording/prominence rather than introducing a second overlapping warning.
 
 ## Artifacts
 
 | File | Description |
 |------|-------------|
-| `docs/association_parameter_plan.md` | Full research plan |
-| `docs/reports/35_association_parameter_scoping.md` | Step report |
-| `portal/components/predictor.py` | Updated with association warning |
+| `docs/association_parameter_plan.md` | Full research plan / go/no-go memo |
+| `portal/components/predictor.py` | Updated with association warning (if needed) |
 
 ## Success Criteria
 
@@ -161,16 +157,9 @@ Write `docs/reports/35_association_parameter_scoping.md` summarizing:
 - [ ] EOS backend assessment documents teqp's association support (or lack thereof)
 - [ ] Architecture options compared with recommendation
 - [ ] Gating criteria defined with clear thresholds
-- [ ] Research plan written with timeline estimate
-- [ ] Portal shows warning for associating molecules
-- [ ] Report documents all findings
-- [ ] `ruff check .` passes
-
-## When to Move On
-
-- Research plan is complete with clear go/no-go evaluation
-- Portal warning is visible and tested
-- All gates evaluated (even if some are "not met" — that's a valid outcome)
+- [ ] Memo makes an explicit `go` / `defer` recommendation
+- [ ] Research plan written with timeline estimate only if the gates are plausibly met
+- [ ] Portal shows a clear warning for associating molecules, if the existing warning was insufficient
 
 ## Budget
 

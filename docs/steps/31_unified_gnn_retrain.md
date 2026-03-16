@@ -2,7 +2,7 @@
 
 ## Objective
 
-Retrain the GNN on the full unified dataset (Esper + ML-SAFT + SPT-PCSAFT, ~13,764 molecules) using a shared train/test split with RF. This resolves the dataset mismatch that caused GNN to underperform on Esper-like molecules and the ensemble to fail. After retraining, switch the HFO screening pipeline from RF to GNN.
+Retrain the GNN on the full unified dataset (Esper + ML-SAFT + SPT-PCSAFT, ~13,764 molecules) using a shared persisted train/test split with RF, then evaluate it on both the overall corpus and the fluorinated screening regime that matters for the product. This resolves the dataset mismatch that caused GNN to underperform on Esper-like molecules and the ensemble to fail. Switch the HFO screening pipeline from RF to GNN only if the retrained model passes both the shared benchmark and the target-domain checks below.
 
 ## Motivation
 
@@ -12,7 +12,7 @@ Three interconnected problems were identified in the current pipeline:
 2. **Dataset mismatch**: RF was trained on Esper (1,801 molecules), GNN on a different pool. The shared test set is Esper-only, putting GNN at a disadvantage. GNN reports R² = 0.73-0.77 on its own test split but degrades on the Esper test set.
 3. **Ensemble failure**: Inverse-variance weighting gave GNN 82% weight despite GNN being out-of-distribution on Esper. This caused the ensemble to underperform RF (Report 28, Step 02c).
 
-After retraining on a unified dataset that includes Esper, GNN should perform well on Esper-like molecules, the ensemble should work correctly, and the screening pipeline can use the best model.
+After retraining on a unified dataset that includes Esper, GNN should perform well on Esper-like molecules, the ensemble should work correctly, and the screening pipeline can use the best model. However, because the hosted portal will be used on fluorinated and partially out-of-domain chemistry, promotion to the default model should not rely on a single IID-style random split alone.
 
 ## Dependencies
 
@@ -43,8 +43,9 @@ Modify `model/gnn/train_gnn.py` (or add a shared utility) so that:
 1. The train/test split is computed once and saved to `model/saved/test_set.csv`
 2. Both GNN and RF use the same test set for evaluation
 3. The split uses `split_data()` from `model/data/load` with `test_size=0.2, random_state=42, stratify_bins=5`
+4. The saved test set retains enough metadata to support slice analysis, ideally including `source`, `inchi`, and any available fluorination/class labels in addition to `smiles`, `m`, `sigma`, `epsilon_k`
 
-The saved test set must contain at minimum: `smiles`, `m`, `sigma`, `epsilon_k`.
+The saved test set must contain at minimum: `smiles`, `m`, `sigma`, `epsilon_k`. If `source` is present in the unified dataframe, persist it as well so the report can break out Esper / ML-SAFT / SPT performance rather than reporting only pooled metrics.
 
 If `model/saved/test_set.csv` already exists (from a previous RF run), check whether it's a subset of the full dataset. If not, regenerate it from the full corpus.
 
@@ -89,29 +90,49 @@ Record metrics in a comparison table:
 | Ensemble (equal) | ... | ... | ... | ... | ... | ... |
 | Ensemble (inv-var) | ... | ... | ... | ... | ... | ... |
 
-### 31.5 Re-calibrate ensemble
+Also record at least two product-relevant slices, even if sample sizes are modest:
+
+1. **Fluorinated / refrigerant-like subset**: molecules containing F, or a curated HFO/HCFO-like subset if labels already exist
+2. **Source-aware subset**: metrics by `source` (Esper, ML-SAFT, SPT-PCSAFT) if the metadata survives deduplication
+
+If the slice counts are too small for stable R², report MAE/RMSE plus sample counts and state that explicitly.
+
+### 31.5 Add a chemistry-aware robustness check
+
+Add one non-IID validation view before promoting the model to production default:
+
+1. **Scaffold or grouped split**: group by Bemis-Murcko scaffold, InChI skeleton, or another chemistry-aware grouping so close analogs are not split between train and test
+2. **Fluorinated holdout**: if a curated fluorinated subset exists, hold out that subset and compare RF vs GNN specifically on it
+3. **Uncertainty sanity check**: compare error vs uncertainty on the held-out slice to confirm the GNN is not confidently wrong on fluorinated/OOD molecules
+
+This does not need to replace the primary shared test set. It is an additional gate to answer the product question: "is the model trustworthy enough to serve by default on the chemistry the portal is likely to see?"
+
+### 31.6 Re-calibrate ensemble
 
 Test two ensemble strategies:
 
 1. **Equal-weighted**: `ŷ = 0.5 * ŷ_RF + 0.5 * ŷ_GNN`
 2. **Inverse-variance**: `ŷ = (w_RF * ŷ_RF + w_GNN * ŷ_GNN) / (w_RF + w_GNN)` where `w_i = 1/σ²_i`
 
-With GNN now trained on a superset that includes Esper, its uncertainty estimates should be more calibrated for Esper-like molecules. The inverse-variance ensemble should now work correctly.
+With GNN now trained on a superset that includes Esper, its uncertainty estimates should be more calibrated for Esper-like molecules. The inverse-variance ensemble should now work correctly, but only if uncertainty tracks actual error better than before.
 
-If inverse-variance still underperforms, fall back to equal weighting and document why.
+If inverse-variance still underperforms, fall back to equal weighting and document why. Do not assume inverse-variance weighting is production-ready merely because the training corpus is larger.
 
-### 31.6 Switch HFO screening to GNN
+### 31.7 Decide whether to switch HFO screening to GNN
 
-Update `screening/hfo_screening.py`:
+Update `screening/hfo_screening.py` only if the checks above support promotion:
 
 1. Replace calls to `model.predict.predict_pcsaft()` (RF-only) with calls through the model registry: `model.registry.get_model("gnn")`
 2. If the screening function accepts a `model_type` parameter, add one and default to `"gnn"`
 3. Update `validate_boiling_points_rf()` to also support GNN (rename to `validate_boiling_points()` with a `model_type` parameter)
 
-### 31.7 Update model cards and state.yaml
+If the unified GNN wins on pooled metrics but fails the fluorinated/robustness checks, keep RF as the screening default for now and document the reason in the report and model cards.
+
+### 31.8 Update model cards, reports, and `state.yaml`
 
 - Update `docs/model_cards/gnn.md` with new metrics (training data size, R² on unified test set)
 - Update `docs/model_cards/ensemble.md` with new ensemble performance
+- Reconcile any now-stale claims in release-facing docs and summaries that currently describe the "all data" GNN as already validated or production-ready
 - Update `state.yaml` with step 31 status and metrics
 
 ## Artifacts
@@ -128,20 +149,23 @@ Update `screening/hfo_screening.py`:
 ## Success Criteria
 
 - [ ] `load_data("all")` returns >= 10,000 molecules
-- [ ] GNN R² >= 0.73 on the unified test set for all three parameters
-- [ ] Ensemble outperforms or matches best individual model
-- [ ] HFO screening runs with GNN predictions (no errors)
+- [ ] GNN R² >= 0.73 on the unified pooled test set for all three parameters
+- [ ] Report includes fluorinated/product-relevant slice metrics with sample counts
+- [ ] At least one chemistry-aware robustness check (scaffold/grouped split or fluorinated holdout) is reported
+- [ ] Uncertainty/error behavior is checked on the held-out slice so overconfident failure modes are visible
+- [ ] Ensemble outperforms or matches the best individual model, or is explicitly rejected with justification
+- [ ] HFO screening switches to GNN only if the target-domain checks support it
 - [ ] `model/saved/test_set.csv` exists and is used by both RF and GNN evaluation
 - [ ] All existing tests pass (`pytest tests/ -v`)
 - [ ] `ruff check .` passes
-- [ ] Report documents all metrics and comparison tables
+- [ ] Report documents pooled metrics, slice metrics, and the model-promotion decision
 
 ## When to Move On
 
-- GNN R² on unified test >= 0.73 for all targets
-- Ensemble does not degrade below best individual model
-- HFO screening produces ranked candidates using GNN
-- Model cards updated with new metrics
+- GNN meets the pooled benchmark and does not show a fluorinated/OOD failure mode large enough to block product use
+- The promotion decision (`gnn` default vs keep `rf` default) is explicit and justified in the report
+- Ensemble behavior is calibrated well enough to use, or explicitly deferred
+- Model cards and release-facing docs are updated so portal/API messaging matches reality
 
 ## Budget
 
