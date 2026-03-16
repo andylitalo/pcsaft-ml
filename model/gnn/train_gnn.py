@@ -12,6 +12,7 @@ import logging
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
@@ -71,8 +72,34 @@ def train_gnn(
     """
     print(f"Loading data (source={source})...")
     df = load_data(source)
-    train_df, test_df = split_data(df)
-    print(f"Train: {len(train_df)}, Test: {len(test_df)}")
+
+    # Use persistent test set if it exists and matches the corpus
+    test_set_path = SAVED_DIR / "test_set.csv"
+    if test_set_path.exists():
+        existing_test = pd.read_csv(test_set_path)
+        # Check if the test set is compatible (has source column for unified corpus)
+        if "source" in existing_test.columns and "source" in df.columns:
+            print(f"Using existing test set from {test_set_path}")
+            test_smiles_set = set(existing_test["smiles"])
+            train_df = df[~df["smiles"].isin(test_smiles_set)].reset_index(drop=True)
+            test_df = df[df["smiles"].isin(test_smiles_set)].reset_index(drop=True)
+            print(f"Train: {len(train_df)}, Test: {len(test_df)}")
+        else:
+            # Old test set from Esper only — regenerate
+            print("Regenerating test set for unified corpus...")
+            train_df, test_df = split_data(df)
+            # Save the new test set with source metadata
+            test_df.to_csv(test_set_path, index=False)
+            print(f"Saved unified test set to {test_set_path}")
+            print(f"Train: {len(train_df)}, Test: {len(test_df)}")
+    else:
+        # No test set exists — create one
+        print("Creating new test set...")
+        train_df, test_df = split_data(df)
+        # Save test set with all available metadata
+        test_df.to_csv(test_set_path, index=False)
+        print(f"Saved test set to {test_set_path}")
+        print(f"Train: {len(train_df)}, Test: {len(test_df)}")
 
     train_smiles = train_df["smiles"].tolist()
     test_smiles = test_df["smiles"].tolist()

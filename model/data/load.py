@@ -148,11 +148,16 @@ def _load_all() -> pd.DataFrame:
     priority = {"esper": 0, "mlsaft": 1, "spt_pcsaft": 2}
     combined["_priority"] = combined["_source"].map(priority)
     combined = combined.sort_values("_priority")
-    combined = deduplicate_by_inchi(combined)
-    combined = combined.drop(columns=["_source", "_priority"], errors="ignore")
 
-    logger.info("Full dataset (all) after InChI deduplication: %d molecules", len(combined))
-    return combined
+    # Preserve source before deduplication (for test set analysis)
+    # deduplicate_by_inchi will keep the first occurrence (highest priority source)
+    combined_dedup = deduplicate_by_inchi(combined)
+    # Rename _source to source for public API
+    combined_dedup = combined_dedup.rename(columns={"_source": "source"})
+    combined_dedup = combined_dedup.drop(columns=["_priority"], errors="ignore")
+
+    logger.info("Full dataset (all) after InChI deduplication: %d molecules", len(combined_dedup))
+    return combined_dedup
 
 
 def load_data(source: str = "auto") -> pd.DataFrame:

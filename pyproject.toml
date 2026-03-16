@@ -19,7 +19,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest", "ruff"]
-nn = ["torch>=2.0,<3.0"]
+nn = ["torch>=2.0,<3.0", "torch_geometric"]
 hf = ["torch>=2.0,<3.0", "transformers>=4.30", "datasets>=2.14"]
 serve = ["fastapi>=0.100", "uvicorn>=0.23", "pydantic-settings>=2.0"]
 pipeline = ["kfp>=2.0"]
