@@ -3,6 +3,10 @@
 1. Synthesizability: SA Score ≤ threshold
 2. Patent freedom: PubChem PUG REST patent check
 3. PC-SAFT similarity: distance to cyclopentane target parameters
+4. Fluorination safety filters (HFO screening):
+   - Fluorine mass fraction
+   - CF3 terminal group detection
+   - Reactive fluorination site detection
 """
 
 import logging
@@ -12,6 +16,7 @@ from collections.abc import Callable
 import numpy as np
 import requests
 from rdkit import Chem
+from rdkit.Chem import Descriptors
 from rdkit.Contrib.SA_Score import sascorer
 
 logger = logging.getLogger(__name__)
@@ -208,3 +213,128 @@ def filter_pcsaft_similarity(
         "PC-SAFT ranking: %d candidates ranked by cyclopentane similarity", len(results)
     )
     return results
+
+
+# ============================================================================
+# Fluorination Safety Filters (Step 32)
+# ============================================================================
+
+def fluorine_mass_fraction(smiles: str) -> float:
+    """Compute mass fraction of fluorine in a molecule.
+
+    Args:
+        smiles: SMILES string
+
+    Returns:
+        float: Fluorine mass fraction (0.0 to 1.0), or 0.0 if parsing fails
+    """
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        return 0.0
+    mw = Descriptors.ExactMolWt(mol)
+    n_fluorine = sum(1 for atom in mol.GetAtoms() if atom.GetAtomicNum() == 9)
+    return (n_fluorine * 18.998) / mw if mw > 0 else 0.0
+
+
+def passes_fluorine_mass_fraction(smiles: str, threshold: float = 0.65) -> bool:
+    """Check if molecule has sufficient fluorine mass fraction for non-flammability.
+
+    The 65 wt% threshold is a heuristic based on ASHRAE 34 A1 classification
+    correlation. This is NOT a flammability guarantee or regulatory certification.
+
+    Args:
+        smiles: SMILES string
+        threshold: Minimum fluorine mass fraction (default 0.65 = 65 wt%)
+
+    Returns:
+        bool: True if fluorine mass fraction >= threshold
+    """
+    return fluorine_mass_fraction(smiles) >= threshold
+
+
+# CF3 terminal group SMARTS: sp3 carbon with 3 fluorines
+CF3_SMARTS = Chem.MolFromSmarts("[CX4](F)(F)F")
+
+
+def count_cf3_groups(smiles: str) -> int:
+    """Count terminal CF3 groups in a molecule.
+
+    Note: This SMARTS pattern matches any sp3 carbon with 3 fluorines, not
+    necessarily "terminal" in the strict sense. The name reflects the intended
+    use case (detecting -CF3 groups), but the pattern may also match internal
+    CF3 on branched carbons.
+
+    Args:
+        smiles: SMILES string
+
+    Returns:
+        int: Number of CF3 groups, or 0 if parsing fails
+    """
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        return 0
+    if CF3_SMARTS is None:
+        return 0
+    matches = mol.GetSubstructMatches(CF3_SMARTS)
+    return len(matches)
+
+
+def has_cf3_group(smiles: str) -> bool:
+    """Check if molecule has at least one CF3 terminal group.
+
+    Args:
+        smiles: SMILES string
+
+    Returns:
+        bool: True if at least one CF3 group is present
+    """
+    return count_cf3_groups(smiles) > 0
+
+
+# Reactive fluorination site SMARTS patterns
+# These are heuristic patterns for thermally or chemically unstable motifs
+
+# Isolated tertiary fluorine: sp3 carbon with exactly one F and no other F neighbors
+# Pattern: carbon with 4 bonds (sp3), exactly one F, and no CF2/CF3 groups
+ISOLATED_TERT_F = Chem.MolFromSmarts("[CH0;X4;!$([CH0](F)(F))](F)")
+
+# Allylic -CHF- adjacent to C=C (risk of HF elimination)
+ALLYLIC_CHF = Chem.MolFromSmarts("[C]=[C][CH1]F")
+
+# Allylic -CH2F adjacent to C=C (risk of HF elimination)
+ALLYLIC_CH2F = Chem.MolFromSmarts("[C]=[C][CH2]F")
+
+REACTIVE_PATTERNS = [
+    (ISOLATED_TERT_F, "isolated_tertiary_fluorine"),
+    (ALLYLIC_CHF, "allylic_CHF"),
+    (ALLYLIC_CH2F, "allylic_CH2F"),
+]
+
+
+def has_reactive_fluorine(smiles: str) -> tuple[bool, list[str]]:
+    """Check if molecule has reactive fluorination sites.
+
+    Reactive sites include:
+    - Isolated tertiary fluorine (single F on sp3 carbon, no neighboring F)
+    - Allylic -CHF- adjacent to C=C bond
+    - Allylic -CH2F adjacent to C=C bond
+
+    These patterns are heuristic indicators of potential thermal or chemical
+    instability. They are NOT formal stability certifications.
+
+    Args:
+        smiles: SMILES string
+
+    Returns:
+        tuple: (has_reactive, list_of_pattern_names)
+            - has_reactive: True if any reactive pattern is found
+            - list_of_pattern_names: Names of matched patterns
+    """
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        return False, []
+    found = []
+    for pattern, name in REACTIVE_PATTERNS:
+        if pattern is not None and mol.HasSubstructMatch(pattern):
+            found.append(name)
+    return len(found) > 0, found

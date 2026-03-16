@@ -1,6 +1,6 @@
 # Step Dependencies and Parallelization Guide
 
-This document describes how the nine ML pipeline steps depend on each other and what can be parallelized. It is intended for agent orchestrators that need to automate the full pipeline in one run.
+This document describes how the ML pipeline steps depend on each other and what can be parallelized. It is intended for agent orchestrators that need to automate the full pipeline in one run.
 
 ---
 
@@ -36,6 +36,21 @@ flowchart TD
     S2 -.->|"minimal: NN or RF"| S5
     S1 -.->|"screening results"| S9
     S4 -.->|"expanded screening"| S9
+
+    subgraph hosted_product["Hosted Product Stream (Steps 31-35)"]
+        S31[31: Unified GNN Retrain]
+        S32[32: Fluorination Filters]
+        S33[33: Similarity Search]
+        S34[34: Cloud Run Deployment]
+        S35[35: GKE Migration]
+
+        S33 --> S34
+        S31 -.->|"GNN promotion"| S34
+        S34 --> S35
+    end
+
+    S8 -.->|"portal exists"| S33
+    S6 -.->|"Dockerfile exists"| S34
 ```
 
 ---
@@ -221,6 +236,70 @@ steps:
       - CHANGELOG.md
       - v1.0.0 git tag
     gates: []
+
+  31_unified_gnn_retrain:
+    depends_on: [02b, 14]
+    optional_deps: [dev, nn]
+    produces:
+      - model/saved/gnn_pcsaft.pt (retrained on unified dataset)
+      - model/saved/test_set.csv (shared train/test split)
+      - docs/model_cards/gnn.md (updated)
+      - docs/model_cards/ensemble.md (updated)
+    gates: [34]
+
+  32_fluorination_safety_filters:
+    depends_on: [25]
+    optional_deps: [dev]
+    produces:
+      - screening/filters.py (fluorine mass fraction, CF3, reactive site filters)
+      - tests/test_fluorination_filters.py
+    gates: []
+    notes: Independent of Steps 31, 33, 34. Can run in parallel.
+
+  33_similarity_search:
+    depends_on: [05, 27]
+    optional_deps: [dev, serve, portal]
+    produces:
+      - serving/app.py (POST /similar endpoint)
+      - serving/schemas.py (SimilarityRequest, SimilarityResponse)
+      - portal/components/predictor.py (similarity UI)
+      - portal/api_client.py (find_similar method)
+      - tests/test_similarity.py
+    gates: [34]
+
+  34_cloud_run_deployment:
+    depends_on: [06, 33]
+    soft_depends_on: [31]
+    optional_deps: [dev, serve, portal]
+    produces:
+      - Dockerfile.portal
+      - docker-compose.yaml
+      - Cloud Run services (pcsaft-api, pcsaft-portal)
+    gates: [35]
+    notes: >
+      Deploys to GCP Cloud Run (project: project-fd592eb9-74e2-455d-959).
+      Custom domain (mlchem.andylitalo.com) mapping deferred.
+      Soft dependency on Step 31: can deploy with RF if GNN promotion
+      criteria not yet met.
+
+  35_gke_migration:
+    depends_on: [34]
+    optional_deps: [dev, serve, portal]
+    produces:
+      - k8s/portal-deployment.yaml
+      - k8s/portal-service.yaml
+      - k8s/ingress.yaml
+      - k8s/api-hpa.yaml
+    gates: []
+    notes: >
+      Future extension. Migrate from Cloud Run to GKE only if needed
+      (cold-start latency, PVCs, GPU, service mesh). May never be
+      executed for the current project scope.
+
+  # Future work (not in numbered sequence):
+  # - Association parameter scoping: docs/steps/future/association_parameter_scoping.md
+  #   Go/no-go memo on 5-parameter (ε_AB, κ_AB) prediction.
+  #   No dependency on numbered steps. Deferred until hosted product is stable.
 ```
 
 ---
@@ -232,6 +311,13 @@ The model stream (01-04) runs sequentially. The infra stream (05-08) also runs s
 - **After Step 02 is approved**, Step 05 can begin with a stub model loader using RF or NN artifacts.
 - **After Step 05 is complete**, Steps 06-08 proceed sequentially.
 - Step 08 can start its predict/submit UI as soon as Step 05 exists (dashboard tab requires Step 07).
+
+**Hosted product stream (31-35)**:
+- Steps 31 (GNN retrain), 32 (fluorination filters), and 35's prerequisite research can run in parallel.
+- Step 33 (similarity search) should complete before Step 34 (Cloud Run deployment).
+- Step 31 is a soft dependency for Step 34: deploy with RF if GNN promotion is not yet decided.
+- Step 35 (GKE migration) is a future extension that may never be needed.
+- Association parameter scoping (`docs/steps/future/`) has no dependencies on numbered steps.
 
 File ownership rules in `PLAN.md` prevent conflicts. Never have two agents modify the same file.
 
@@ -269,3 +355,5 @@ Run `python scripts/check_gate.py <step>` to verify programmatically.
 | 07 | `k8s/` manifests exist |
 | 08 | `serving/app.py` and `pipeline/pipeline.py` exist |
 | 09 | Screening results CSV exists in `screening/results/` |
+| 34 | `Dockerfile.portal` exists; `docker-compose.yaml` exists; `/similar` endpoint exists in `serving/app.py` |
+| 35 | Cloud Run services deployed and reachable (Step 34 complete) |

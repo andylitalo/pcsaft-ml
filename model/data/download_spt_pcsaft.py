@@ -55,7 +55,14 @@ def download_spt_pcsaft() -> pd.DataFrame:
     resp = requests.get(SPT_PCSAFT_URL, timeout=120)
     resp.raise_for_status()
 
-    df = pd.read_csv(StringIO(resp.text))
+    # Skip the license header line (first line)
+    lines = resp.text.splitlines()
+    if lines and "License" in lines[0]:
+        csv_text = "\n".join(lines[1:])
+    else:
+        csv_text = resp.text
+
+    df = pd.read_csv(StringIO(csv_text))
     print(f"Raw SPT-PCSAFT data shape: {df.shape}")
 
     col_map = {
