@@ -1,0 +1,137 @@
+{
+  "step": "38d",
+  "validation_comparison": {
+    "m": {
+      "rf_mae": 0.8515915399999998,
+      "gnn_esper_mae": 1.6963050114695233,
+      "gnn_unified_mae": 1.574923124669393
+    },
+    "sigma": {
+      "rf_mae": 0.07172358666666699,
+      "gnn_esper_mae": 0.4087276564788818,
+      "gnn_unified_mae": 0.3966549979400635
+    },
+    "epsilon_k": {
+      "rf_mae": 14.296562613333366,
+      "gnn_esper_mae": 72.37568717447917,
+      "gnn_unified_mae": 77.59793143717448
+    },
+    "bp": {
+      "rf_mae": 8.165120311316135,
+      "rf_rmse": 10.316871747714949,
+      "rf_converged": 6,
+      "gnn_esper_mae": 142.29556530457748,
+      "gnn_esper_rmse": 145.58743004880554,
+      "gnn_esper_converged": 7,
+      "gnn_unified_mae": 133.7192459879998,
+      "gnn_unified_rmse": 139.90828281594162,
+      "gnn_unified_converged": 6
+    },
+    "rf_advantage_unified": 16.37688618043714,
+    "rf_advantage_esper": 17.42724661477044
+  },
+  "rank_agreement": {
+    "rf_gnn_esper_overlap": 16,
+    "rf_gnn_unified_overlap": 39,
+    "all_three_overlap": 10,
+    "top10_rf_gnn_esper": 3,
+    "top10_rf_gnn_unified": 1,
+    "top20_rf_gnn_esper": 11,
+    "top20_rf_gnn_unified": 7,
+    "spearman_rf_gnn_esper": {
+      "rho": 0.24705882352941175,
+      "p": 0.35627504151257744
+    },
+    "spearman_rf_gnn_unified": {
+      "rho": 0.28866396761133606,
+      "p": 0.07471503211292117
+    },
+    "spearman_gnn_esper_unified": {
+      "rho": 0.5648351648351648,
+      "p": 0.03533018486755275
+    },
+    "mean_abs_rank_shift": 5.0,
+    "funnel": {
+      "rf_final": 50,
+      "gnn_esper_final": 23,
+      "gnn_unified_final": 65,
+      "rf_bp_pass": 1190,
+      "gnn_esper_bp_pass": 168,
+      "gnn_unified_bp_pass": 729
+    }
+  },
+  "disagreement_analysis": {
+    "rho_sim_rf_err": 0.40590820425503005,
+    "rho_sim_gnn_err": -0.3650620956507503,
+    "rho_sim_disagreement": -0.40846108604279757,
+    "mean_tanimoto_validation": 0.9059259259259259
+  },
+  "uncertainty_comparison": {
+    "rf_m": {
+      "mean_std": 0.3027589206789908,
+      "mean_error": 0.8515915399999998,
+      "coverage_1sigma": 0.0,
+      "coverage_2sigma": 0.06666666666666667,
+      "std_error_ratio": 0.3555212874460811
+    },
+    "rf_sigma": {
+      "mean_std": 0.1360388604886715,
+      "mean_error": 0.07172358666666699,
+      "coverage_1sigma": 0.8666666666666667,
+      "coverage_2sigma": 1.0,
+      "std_error_ratio": 1.8967102289642546
+    },
+    "rf_epsilon_k": {
+      "mean_std": 18.198452994965383,
+      "mean_error": 14.296562613333366,
+      "coverage_1sigma": 0.8,
+      "coverage_2sigma": 0.9333333333333333,
+      "std_error_ratio": 1.2729250720724299
+    },
+    "gnn_esper_m": {
+      "mean_std": 0.3865868111451467,
+      "mean_error": 1.6963050114695233,
+      "coverage_1sigma": null,
+      "coverage_2sigma": 0.06666666666666667,
+      "std_error_ratio": 0.22789935096061723
+    },
+    "gnn_esper_sigma": {
+      "mean_std": 0.06387097363670667,
+      "mean_error": 0.4087276564788818,
+      "coverage_1sigma": 0.06666666666666667,
+      "coverage_2sigma": 0.13333333333333333,
+      "std_error_ratio": 0.15626780479438088
+    },
+    "gnn_esper_epsilon_k": {
+      "mean_std": 9.54925676981608,
+      "mean_error": 72.37568717447917,
+      "coverage_1sigma": 0.06666666666666667,
+      "coverage_2sigma": 0.13333333333333333,
+      "std_error_ratio": 0.1319401188799117
+    }
+  },
+  "decision": {
+    "selected_model": "rf",
+    "criteria": [
+      {
+        "name": "bp_accuracy",
+        "winner": "rf",
+        "rf_value": 8.165120311316135,
+        "gnn_best_value": 133.7192459879998,
+        "advantage": 16.37688618043714
+      },
+      {
+        "name": "parameter_accuracy",
+        "winner": "rf",
+        "advantage": 5.0624537612264655
+      },
+      {
+        "name": "uncertainty_calibration",
+        "winner": "rf",
+        "rf_coverage": 0.8,
+        "gnn_coverage": 0.06666666666666667
+      }
+    ],
+    "verdict": "RF selected for all fluorinated HFO screening. GNN fails architecturally on small fluorinated molecules."
+  }
+}

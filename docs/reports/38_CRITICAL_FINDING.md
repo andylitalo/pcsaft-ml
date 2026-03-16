@@ -88,4 +88,36 @@ The GNN was trained on SPT-PC-SAFT-derived parameters, which systematically diff
 
 ---
 
-**Next conversation**: Decide on Option A, B, or C before proceeding.
+## Resolution (Step 38d)
+
+**Date**: 2026-03-16
+**Decision**: **Option A selected -- RF is the production model for fluorinated HFO screening.**
+
+### Actions Completed
+
+1. **Step 38b**: Re-ran full HFO screening with RF model. 50 candidates pass all 7 filters (vs 65 for GNN-Unified). RF boiling point MAE confirmed at 8.2 K on validation set.
+
+2. **Step 38c**: Retrained GNN on Esper-only data (clean, experimentally fitted parameters). Result: 142.3 K boiling point MAE -- **worse** than the unified GNN (133.7 K). This disproves the SPT contamination hypothesis and confirms the failure is architectural.
+
+3. **Step 38d**: Formal three-way comparison (RF vs GNN-Esper vs GNN-Unified) on all axes:
+   - **Accuracy**: RF wins 16.4x on boiling point MAE
+   - **Parameters**: RF wins 5.1-5.7x on sigma and epsilon_k MAE
+   - **Uncertainty**: RF epsilon_k coverage = 80% at 1-sigma (vs GNN's 7%)
+   - **Rank agreement**: RF and GNN rankings are uncorrelated (Spearman rho < 0.3)
+
+### Root Cause (Updated)
+
+The original hypothesis (SPT data contamination) was **wrong**. The actual root cause is **architectural limitation**:
+
+- 1,801 molecules is insufficient for a 195K-parameter GNN to learn fluorinated-compound representations
+- RDKit descriptors (RF) encode chemical knowledge that GNN must learn from scratch
+- GNN message passing cannot distinguish the narrow parameter regime of small fluorinated molecules
+
+### Status: RESOLVED
+
+- Steps 39-42 are unblocked
+- RF ranked list at `screening/results/hfo_rf_ranked.csv` (50 candidates)
+- GNN results archived for reference, not used for decisions
+- Full comparison: `docs/reports/38d_rf_vs_gnn_comparison.md`
+- Figures: `figures/38d_rf_vs_gnn_comparison/`
+- Metrics: `model/saved/step38d_rf_vs_gnn_comparison.json`
