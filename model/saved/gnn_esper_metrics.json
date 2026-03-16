@@ -1,0 +1,108 @@
+{
+  "esper_test_metrics": {
+    "m": {
+      "r2": 0.5087,
+      "mae": 0.789,
+      "rmse": 1.3181
+    },
+    "sigma": {
+      "r2": 0.2785,
+      "mae": 0.2238,
+      "rmse": 0.3426
+    },
+    "epsilon_k": {
+      "r2": 0.3213,
+      "mae": 29.5662,
+      "rmse": 51.6067
+    }
+  },
+  "fluorinated_bp_metrics": {
+    "GNN_esper": {
+      "mae": 142.29556530457748,
+      "median_ae": 126.90221359131789,
+      "max_ae": 193.07364074323186,
+      "rmse": 145.58743004880554,
+      "n_converged": 7,
+      "n_total": 15,
+      "convergence_rate": 0.4666666666666667,
+      "mean_error": 142.29556530457748
+    },
+    "GNN_unified": {
+      "mae": 133.7192459879998,
+      "median_ae": 127.02951653734094,
+      "max_ae": 202.92306096171342,
+      "rmse": 139.90828281594162,
+      "n_converged": 6,
+      "n_total": 15,
+      "convergence_rate": 0.4,
+      "mean_error": 133.7192459879998
+    },
+    "RF": {
+      "mae": 8.165120311316135,
+      "median_ae": 7.623882799506191,
+      "max_ae": 16.710587545988403,
+      "rmse": 10.316871747714949,
+      "n_converged": 6,
+      "n_total": 15,
+      "convergence_rate": 0.4,
+      "mean_error": -6.166039860762813
+    }
+  },
+  "fluorinated_param_metrics": {
+    "m": {
+      "mae": 1.6963050114695233,
+      "rmse": 1.9061157912717916,
+      "r2": -15.944794299928414,
+      "n": 15,
+      "mean_error": 1.6963050114695233
+    },
+    "sigma": {
+      "mae": 0.4087276564788818,
+      "rmse": 0.4262396135324799,
+      "r2": -4.934349123788872,
+      "n": 15,
+      "mean_error": 0.4087276564788818
+    },
+    "epsilon_k": {
+      "mae": 72.37568717447917,
+      "rmse": 77.94737506487887,
+      "r2": -20.05281802594218,
+      "n": 15,
+      "mean_error": 72.37568717447917
+    }
+  },
+  "uncertainty_calibration": {
+    "m": {
+      "coverage_1sigma": 0.0,
+      "coverage_2sigma": 0.06666666666666667,
+      "expected_1sigma": 0.68,
+      "expected_2sigma": 0.95,
+      "n": 15,
+      "mean_std": 0.3865868111451467,
+      "mean_error": 1.6963050114695233
+    },
+    "sigma": {
+      "coverage_1sigma": 0.06666666666666667,
+      "coverage_2sigma": 0.13333333333333333,
+      "expected_1sigma": 0.68,
+      "expected_2sigma": 0.95,
+      "n": 15,
+      "mean_std": 0.06387097363670667,
+      "mean_error": 0.4087276564788818
+    },
+    "epsilon_k": {
+      "coverage_1sigma": 0.06666666666666667,
+      "coverage_2sigma": 0.13333333333333333,
+      "expected_1sigma": 0.68,
+      "expected_2sigma": 0.95,
+      "n": 15,
+      "mean_std": 9.54925676981608,
+      "mean_error": 72.37568717447917
+    }
+  },
+  "screening_summary": {
+    "model": "gnn_esper",
+    "n_candidates_generated": 10700,
+    "n_passing_all_filters": 23
+  }
+}
