@@ -184,6 +184,7 @@ class NNModel:
 
     def load(self) -> None:
         import torch
+
         from model.nn.architecture import PCSAFTNet
 
         path = SAVED_DIR / "nn_pcsaft.pt"
@@ -281,6 +282,7 @@ class GNNModel:
 
     def load(self) -> None:
         import torch
+
         from model.gnn.architecture import PCSAFTGraphNet
 
         path = SAVED_DIR / "gnn_pcsaft.pt"
