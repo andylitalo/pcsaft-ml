@@ -455,3 +455,93 @@ steps:
       provenance_gnn: pending_upstream
       n_tests: 295
     approved: true
+  # === Phase 3 Steps ===
+  31_unified_gnn_retrain:
+    status: completed
+    branch: step-31-unified-gnn-retrain
+    artifacts:
+      - model/data/download_spt_pcsaft.py (fixed CSV parsing)
+      - model/data/load.py (preserve source column)
+      - model/gnn/train_gnn.py (persistent test set)
+      - model/saved/gnn_pcsaft.pt (retrained weights)
+      - scripts/evaluate_unified_gnn.py
+      - scripts/analyze_esper_breakdown.py
+      - scripts/generate_parity_plots.py
+      - figures/31_unified_gnn_retrain/
+      - docs/reports/31_unified_gnn_retrain.md
+    metrics:
+      n_unified_molecules: 13764
+      n_test: 2753
+      gnn_r2_m: 0.79
+      gnn_r2_sigma: 0.77
+      gnn_r2_epsilon_k: 0.73
+      gnn_r2_m_fluorinated: 0.86
+      gnn_r2_sigma_fluorinated: 0.73
+      gnn_r2_epsilon_k_fluorinated: 0.91
+      rf_r2_m_unified: -0.44
+      rf_r2_sigma_unified: 0.30
+      rf_r2_epsilon_k_unified: 0.24
+      best_epoch: 39
+      recommendation: switch_default_to_gnn
+    approved: true
+  32_fluorination_safety_filters:
+    status: completed
+    branch: step-31-unified-gnn-retrain
+    artifacts:
+      - screening/filters.py (F mass fraction, CF3 detection, reactive site ban)
+      - screening/hfo_screening.py (integrated 3 new filters)
+      - tests/test_fluorination_filters.py (28 tests)
+      - docs/reports/32_fluorination_safety_filters.md
+    metrics:
+      n_new_filters: 3
+      f_mass_fraction_threshold: 0.65
+      n_reactive_smarts_patterns: 3
+      n_new_tests: 28
+    approved: true
+  33_similarity_search:
+    status: completed
+    branch: step-34-cloud-run-deployment
+    artifacts:
+      - serving/app.py (POST /similar endpoint)
+      - serving/schemas.py (SimilarityRequest, SimilarityResponse)
+      - portal/api_client.py (find_similar, local fallback)
+      - portal/components/predictor.py (similar molecules expander)
+      - tests/test_similarity.py (11 tests)
+      - docs/reports/33_similarity_search.md
+    metrics:
+      n_reference_corpus: 24
+      n_novel_corpus: 4663
+      distance_metrics: parameter_tanimoto_both
+      n_new_tests: 11
+    approved: true
+  34_cloud_run_deployment:
+    status: completed
+    branch: step-34-cloud-run-deployment
+    artifacts:
+      - Dockerfile.portal (multi-stage Streamlit build)
+      - docker-compose.yaml (two-service local stack)
+      - tests/test_deployment.py (9 tests)
+      - docs/reports/34_cloud_run_deployment.md
+    metrics:
+      n_services: 2
+      portal_port: 8501
+      api_port: 8000
+      n_new_tests: 9
+    approved: true
+  35_gke_migration:
+    status: completed
+    branch: step-35-gke-migration
+    artifacts:
+      - k8s/portal-deployment.yaml
+      - k8s/portal-service.yaml
+      - k8s/ingress.yaml
+      - k8s/api-hpa.yaml
+      - k8s/configmap.yaml (updated to gnn)
+      - tests/test_k8s_manifests.py (6 tests)
+      - docs/reports/35_gke_migration.md
+    metrics:
+      configmap_model_type: gnn
+      hpa_min_replicas: 1
+      hpa_max_replicas: 5
+      n_new_tests: 6
+    approved: true
