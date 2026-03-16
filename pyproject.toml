@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "ruff"]
+dev = ["pytest", "ruff", "pyyaml"]
 nn = ["torch>=2.0,<3.0", "torch_geometric"]
 hf = ["torch>=2.0,<3.0", "transformers>=4.30", "datasets>=2.14"]
 serve = ["fastapi>=0.100", "uvicorn>=0.23", "pydantic-settings>=2.0"]
@@ -39,4 +39,9 @@ select = ["E", "F", "I"]
 [tool.pytest.ini_options]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
 ]
