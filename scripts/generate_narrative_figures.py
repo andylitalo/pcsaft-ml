@@ -15,10 +15,10 @@ import numpy as np
 import pandas as pd
 from rdkit import Chem
 
+from model.uncertainty import binomial_ci
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-from model.uncertainty import binomial_ci
 
 
 def classify_molecule(smiles: str) -> str:
