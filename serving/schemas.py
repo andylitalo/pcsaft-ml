@@ -86,3 +86,52 @@ class HealthResponse(BaseModel):
     model_loaded: bool
     model_name: str
     version: str
+
+
+class SimilarityRequest(BaseModel):
+    """Similarity search request schema."""
+
+    smiles: str | None = None
+    m: float | None = None
+    sigma: float | None = None
+    epsilon_k: float | None = None
+    k: int = Field(10, gt=0, le=100, description="Number of neighbors to return")
+    corpus: str = Field(
+        "all",
+        description=(
+            "Search corpus: 'reference' (curated molecules), "
+            "'novel' (model predictions), or 'all'"
+        ),
+    )
+    metric: str = Field(
+        "parameter",
+        description=(
+            "Distance metric: 'parameter' (PC-SAFT space), "
+            "'tanimoto' (fingerprint), or 'both'"
+        ),
+    )
+
+
+class SimilarMolecule(BaseModel):
+    """Single similar molecule result."""
+
+    smiles: str
+    corpus: str = Field(description="Source corpus: 'reference' or 'novel'")
+    m: float
+    sigma: float
+    epsilon_k: float
+    parameter_distance: float | None = None
+    tanimoto_similarity: float | None = None
+    mol_class: str | None = None
+    boiling_point_K: float | None = None
+
+
+class SimilarityResponse(BaseModel):
+    """Similarity search response schema."""
+
+    query_smiles: str | None
+    query_params: dict | None
+    corpus: str
+    corpus_version: str
+    neighbors: list[SimilarMolecule]
+    metric: str
