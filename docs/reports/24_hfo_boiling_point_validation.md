@@ -92,6 +92,15 @@ All RF predictions underestimate T_b (mean error: -7.1 K). Possible causes:
 - VLE solver initial guesses tuned for higher-boiling compounds
 - Training set bias toward larger molecules (median MW in Esper: 180 g/mol vs validation set: 120 g/mol)
 
+### 5. Why RF Instead of GNN
+
+This validation uses the Random Forest model exclusively, despite the GNN achieving substantially better standalone metrics (R^2 0.73-0.77 vs RF 0.27-0.62 for PC-SAFT parameters). Two factors drove this choice:
+
+1. **Inference path**: At the time of implementation, the screening pipeline (`screening/hfo_screening.py` and `model/predict.py`) was wired to use only RF for predictions. The GNN was accessible via the model registry but not yet integrated into the screening workflow.
+2. **Dataset mismatch**: The GNN was trained on a different data pool (combined/ML-SAFT + SPT-PCSAFT) while the shared evaluation test set is drawn from Esper data only. This means the GNN is partially out-of-distribution on Esper-like molecules, which is exactly the domain of these HFO validation compounds. Additionally, the `load_data("all")` path was not properly implemented, so the GNN may not have been trained on the full intended 13,764-molecule corpus.
+
+Step 31 (unified GNN retraining) addresses both issues: it fixes the data loader, retrains GNN on a unified dataset including Esper, and switches the screening pipeline to use GNN. After retraining, the boiling point validation should be re-run with GNN predictions for a fair comparison.
+
 ## Scope and Limitations
 
 **This module is validated for exploratory screening, not production property prediction.** Specific caveats:

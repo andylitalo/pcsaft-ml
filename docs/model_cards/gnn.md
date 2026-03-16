@@ -35,7 +35,7 @@ Following the model card framework proposed by Mitchell et al. (2019) "Model Car
 
 **Contact**: GitHub repository issues
 
-**License**: MIT License
+**License**: CC-BY-NC-SA 4.0 (model weights; trained on SPT-PCSAFT data which is CC-BY-NC-SA 4.0). Source code is MIT.
 
 ---
 

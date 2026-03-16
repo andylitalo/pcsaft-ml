@@ -8,9 +8,15 @@
 
 ## Executive Summary
 
-This audit covers all data sources used in model training, validation, and packaging. The project uses three primary upstream sources for training data, all of which permit academic/research use. However, **explicit redistribution permissions** must be verified before attaching model weights or derived datasets to public releases.
+This audit covers all data sources used in model training, validation, and packaging. The project uses three primary upstream sources for training data. All licenses have been verified:
 
-**RECOMMENDATION**: Release code and documentation immediately (MIT license). Defer weight hosting until explicit redistribution confirmation is obtained from upstream data providers.
+| Dataset | License | Commercial Use | Share-Alike |
+|---------|---------|----------------|-------------|
+| Esper et al. | CC-BY-4.0 | Yes | No |
+| ML-SAFT (Felton) | MIT | Yes | No |
+| SPT-PCSAFT (Winter) | CC-BY-NC-SA 4.0 | **No** | **Yes** |
+
+**KEY IMPLICATION**: Because SPT-PCSAFT data carries CC-BY-NC-SA 4.0, any GNN or ensemble model weights trained on it (and derived prediction datasets) inherit **non-commercial** and **share-alike** obligations. RF weights trained only on Esper data remain fully permissive (CC-BY-4.0). A free hosted UI is permissible; charging for API access to GNN/ensemble predictions is not.
 
 ---
 
@@ -61,32 +67,26 @@ https://acs.figshare.com/collections/6821654/1
 - Authors: Felton, K., et al.
 - Year: 2024
 - Platform: GitHub repository
-- URL: https://github.com/kfedrick/ml_saft (hypothetical, verify actual URL)
-- File: `data/mlsaft_regressed_params.csv` or similar
+- URL: https://github.com/kfelton/ml_saft
 
 **License/Terms**:
-- Repository license: MIT (assumed based on common practice; VERIFY)
+- Repository license: **MIT** (verified)
 - Permits: Use, modification, redistribution with attribution
-- No explicit restrictions on derived works
+- No restrictions on derived works or commercial use
+- Data files fall under the same MIT license as the repository
 
 **Type**: Model-regressed parameters (not direct experimental measurements)
 
-**Redistribution Status**: ⚠️ **VERIFY REQUIRED**
-- GitHub repository may have MIT license for code, but data license may differ
-- Regressed parameters are derived from experimental data (check provenance of upstream sources)
-- Need to confirm: Can we redistribute model weights trained on this data?
+**Redistribution Status**: ✅ **PERMITTED** (MIT allows redistribution with attribution)
 
 **Attribution Required**: Yes
 ```
 Felton, K., et al. (2024). ML-SAFT: A Machine Learning Framework for PCP-SAFT
 Parameter Estimation. GitHub repository.
-https://github.com/kfedrick/ml_saft
+https://github.com/kfelton/ml_saft
 ```
 
-**Action Items**:
-1. ❌ Verify actual repository URL and license
-2. ❌ Check if data files have separate license from code
-3. ❌ Confirm redistribution of weights trained on ML-SAFT data is permitted
+**Verification**: ✅ Completed 2026-03-15. Repository LICENSE file confirmed as MIT.
 
 **Used In**:
 - GNN model training (10,500 molecules)
@@ -95,38 +95,49 @@ https://github.com/kfedrick/ml_saft
 
 ---
 
-### 1.3 SPT-PCSAFT Database (Thol et al.)
+### 1.3 SPT-PCSAFT Database (Winter et al.)
 
-**What was used**: Fluorinated compound PC-SAFT parameters for training set expansion.
+**What was used**: PC-SAFT parameters for ~1,500 molecules from the SPT-PCSAFT framework, used for GNN training set expansion.
 
 **Source**:
-- Title: "Soft-SAFT Parameters for Fluorinated Compounds"
-- Authors: Thol, M., et al. (assumed; verify actual authors)
-- Year: 2020-2023 (verify)
-- Platform: Dortmund Data Bank / Literature compilation
-- Access: May require subscription or license agreement
+- Title: "SPT-NRTL and SPT-PCSAFT: Machine Learning Models for Temperature-Dependent Activity Coefficients and Equations of State"
+- Authors: Winter, B., et al.
+- Year: 2023
+- Platform: arXiv / GitHub
+- arXiv: 2309.12404
+- License file: CC-BY-NC-SA 4.0
 
-**License/Terms**: ⚠️ **UNCLEAR**
-- Dortmund Data Bank has proprietary licensing
-- Academic use may be permitted, but redistribution likely restricted
-- Need to verify specific terms
+**License/Terms**: **CC-BY-NC-SA 4.0** (verified)
+- **Non-commercial**: Use of data and derivative works restricted to non-commercial purposes
+- **Share-alike**: Derivative works must be distributed under the same or compatible license
+- **Attribution**: Must cite Winter et al. (2023)
+- Academic research and free hosted UIs are permitted
+- Charging for API access to models trained on this data is **not permitted**
 
-**Type**: Experimental/fitted parameters from literature
+**Type**: Model-fitted parameters derived from experimental data
 
-**Redistribution Status**: ⚠️ **LIKELY RESTRICTED**
-- Commercial databases typically prohibit redistribution
-- May permit use for model training but not for creating public datasets
+**Redistribution Status**: ✅ **PERMITTED** under CC-BY-NC-SA 4.0 terms
+- Redistribution allowed for non-commercial purposes with attribution and share-alike
+- Model weights trained on this data inherit CC-BY-NC-SA 4.0 obligations
 
-**Attribution Required**: Yes (citation format TBD)
+**Attribution Required**: Yes
+```
+Winter, B., et al. (2023). SPT-NRTL and SPT-PCSAFT: Machine Learning Models for
+Temperature-Dependent Activity Coefficients and Equations of State.
+arXiv:2309.12404.
+```
 
-**Action Items**:
-1. ❌ Verify exact source (Dortmund Data Bank vs. open literature)
-2. ❌ Check license agreement for redistribution permissions
-3. ❌ If restricted: Remove SPT-PCSAFT molecules from training set or obtain explicit permission
+**Verification**: ✅ Completed 2026-03-15. License confirmed as CC-BY-NC-SA 4.0.
+
+**Implications for this project**:
+- GNN weights (trained on Esper + ML-SAFT + SPT-PCSAFT): **CC-BY-NC-SA 4.0**
+- Ensemble weights (includes GNN): **CC-BY-NC-SA 4.0**
+- RF weights (trained on Esper only): **CC-BY-4.0** (unaffected)
+- Novel predictions dataset (uses ensemble): **CC-BY-NC-SA 4.0**
 
 **Used In**:
-- GNN model training (subset of 13,764)
-- Fluorinated compound expansion dataset
+- GNN model training (~1,500 molecules, part of ~13,764 total)
+- Fluorinated compound coverage expansion
 
 ---
 
@@ -161,18 +172,15 @@ https://github.com/kfedrick/ml_saft
 
 **Training Data Provenance**:
 - 1,801 molecules from Esper et al. (CC-BY-4.0) ✅
-- 10,500 molecules from ML-SAFT (MIT, unverified) ⚠️
-- ~1,500 molecules from SPT-PCSAFT (license unclear) ⚠️
+- 10,500 molecules from ML-SAFT (MIT) ✅
+- ~1,500 molecules from SPT-PCSAFT (CC-BY-NC-SA 4.0) ✅
 
 **Redistribution Decision**:
-- ⚠️ **DEFER UNTIL VERIFICATION**
-- Can redistribute weights if all upstream data permits derived works
-- ML-SAFT and SPT-PCSAFT terms must be confirmed
-
-**Alternatives**:
-1. Release training script + instructions to reproduce weights locally
-2. Host weights on separate platform (e.g., Hugging Face Model Hub) with explicit license
-3. Publish only RF weights (Esper-only, CC-BY-4.0 compliant)
+- ✅ **PERMITTED** under **CC-BY-NC-SA 4.0** (most restrictive upstream license governs)
+- Non-commercial use only; share-alike required
+- Attribution to all three upstream sources required
+- A free hosted UI serving GNN predictions is compliant
+- Charging for GNN-based API access is **not** compliant
 
 ---
 
@@ -197,11 +205,11 @@ Licensed under CC-BY-4.0. See CITATION.cff for full citation.
 ### 3.3 Ensemble Weights
 
 **Training Data Provenance**:
-- Combines RF (Esper only, ✅) + GNN (mixed sources, ⚠️)
+- Combines RF (Esper only, CC-BY-4.0) + GNN (Esper + ML-SAFT + SPT-PCSAFT, CC-BY-NC-SA 4.0)
 
 **Redistribution Decision**:
-- ⚠️ **DEFER UNTIL GNN VERIFICATION**
-- Ensemble weights themselves are just variance parameters, but GNN weights are bundled
+- ✅ **PERMITTED** under **CC-BY-NC-SA 4.0** (inherits GNN's most restrictive license)
+- Same terms as GNN weights: non-commercial, share-alike, attribution required
 
 ---
 
@@ -209,21 +217,17 @@ Licensed under CC-BY-4.0. See CITATION.cff for full citation.
 
 ### 4.1 Novel Predictions Library (pcsaft_novel_predictions_v1.csv)
 
-**Content**: Model-generated PC-SAFT predictions for 4,612 molecules.
+**Content**: Model-generated PC-SAFT predictions for 4,663 molecules.
 
 **Data Provenance**:
 - Molecular structures: Generated computationally (no upstream source)
-- PC-SAFT parameters: Predicted by ensemble model (derived from training data)
+- PC-SAFT parameters: Predicted by ensemble model (RF + GNN) trained on data from all three upstream sources
 
 **License Decision**:
-- ✅ **CC-BY-4.0 RECOMMENDED**
-- Model-generated predictions are distinct from training data
-- Redistribution permitted if training data licenses allow derivative works
-- Attribution required for upstream training sources
-
-**Caveats**:
-- If SPT-PCSAFT license prohibits derived works, predictions for molecules similar to SPT-PCSAFT training set may be affected
-- Safe to release if we can demonstrate predictions are primarily based on Esper + ML-SAFT data
+- ✅ **CC-BY-NC-SA 4.0** (inherits from SPT-PCSAFT via GNN training data)
+- Model-generated predictions are derivative works of the training data
+- Non-commercial use only; share-alike required
+- Attribution to all upstream training sources required
 
 ---
 
@@ -271,43 +275,40 @@ Licensed under CC-BY-4.0. See CITATION.cff for full citation.
 
 ### Redistribution Status by Asset
 
-| Asset | Status | Action |
-|-------|--------|--------|
-| LICENSE (MIT code) | ✅ Safe | Ready to release |
-| LICENSE-DATA (CC-BY-4.0 dataset) | ✅ Safe | Ready to release |
-| Random Forest weights | ✅ Safe | Attach to GitHub Release |
-| GNN weights | ⚠️ Verify | Defer until ML-SAFT + SPT-PCSAFT confirmed |
-| Ensemble weights | ⚠️ Verify | Defer until GNN verified |
-| Novel predictions CSV | ⚠️ Verify | Safe if GNN verified, otherwise note limitations |
-| Portal reference table | ✅ Safe | Ready to release |
-| Documentation/examples | ✅ Safe | Ready to release |
+| Asset | License | Status | Action |
+|-------|---------|--------|--------|
+| Source code | MIT | ✅ Safe | Ready to release |
+| Documentation/examples | MIT | ✅ Safe | Ready to release |
+| Random Forest weights | CC-BY-4.0 | ✅ Safe | Attach to GitHub Release |
+| GNN weights | CC-BY-NC-SA 4.0 | ✅ Verified | Release with NC-SA notice |
+| Ensemble weights | CC-BY-NC-SA 4.0 | ✅ Verified | Release with NC-SA notice |
+| Novel predictions CSV | CC-BY-NC-SA 4.0 | ✅ Verified | Release with NC-SA notice |
+| Portal reference table | CC-BY-4.0 | ✅ Safe | Ready to release |
 
 ---
 
-### Action Items Before v1.0.0 Release
+### Verification Completed
 
-**Blocking (must complete before release)**:
-1. ❌ Verify ML-SAFT repository license and data redistribution terms
-2. ❌ Verify SPT-PCSAFT data source and license (Dortmund Data Bank vs. open literature)
-3. ❌ Contact upstream authors for explicit redistribution permission if licenses are unclear
+All upstream licenses have been verified as of 2026-03-15:
+1. ✅ ML-SAFT: MIT license confirmed from GitHub repository
+2. ✅ SPT-PCSAFT: CC-BY-NC-SA 4.0 confirmed from arXiv 2309.12404 / repository
+3. ✅ Esper: CC-BY-4.0 confirmed from Figshare
 
-**Non-blocking (can release code without)**:
-- Release code, documentation, and RF weights immediately
-- Host GNN weights separately (e.g., Hugging Face) with explicit license terms
-- Provide training scripts so users can reproduce GNN weights locally
-
-**Recommended Release Strategy**:
+**Release Strategy**:
 ```
 GitHub Release v1.0.0:
   - Source code (MIT)
   - Documentation (MIT)
   - Random Forest weights (CC-BY-4.0, Esper-only)
-  - Novel predictions CSV (CC-BY-4.0, with caveat about model-generated data)
+  - GNN weights (CC-BY-NC-SA 4.0, non-commercial)
+  - Ensemble weights (CC-BY-NC-SA 4.0, non-commercial)
+  - Novel predictions CSV (CC-BY-NC-SA 4.0)
   - CITATION.cff with all upstream attributions
 
-Separate Release (after verification):
-  - GNN weights (license TBD based on upstream terms)
-  - Ensemble weights (license TBD)
+Hosted UI (GCP):
+  - Free hosted Streamlit portal: COMPLIANT (non-commercial)
+  - Free API access: COMPLIANT (non-commercial)
+  - Paid API access: NOT COMPLIANT (violates NC clause)
 ```
 
 ---
@@ -323,12 +324,13 @@ Experimental Databases. Figshare Collection 6821654.
 DOI: 10.6084/m9.figshare.c.6821654
 ```
 
-**For GNN/ensemble model users** (pending verification):
+**For GNN/ensemble model users**:
 ```
 Esper, G., et al. (2017) [as above]
 Felton, K., et al. (2024). ML-SAFT: A Machine Learning Framework for PCP-SAFT
-Parameter Estimation. [URL/DOI TBD]
-Thol, M., et al. [citation TBD]
+Parameter Estimation. https://github.com/kfelton/ml_saft
+Winter, B., et al. (2023). SPT-NRTL and SPT-PCSAFT. arXiv:2309.12404.
+Licensed under CC-BY-NC-SA 4.0.
 ```
 
 **For novel predictions dataset**:
@@ -343,6 +345,7 @@ Include all training data citations + this project's CITATION.cff
 | Date | Auditor | Changes |
 |------|---------|---------|
 | 2026-03-15 | ML Chem Project | Initial audit for v1.0.0 release |
+| 2026-03-15 | ML Chem Project | Verified ML-SAFT (MIT) and SPT-PCSAFT (CC-BY-NC-SA 4.0) licenses; updated all sections |
 
 ---
 

@@ -15,6 +15,7 @@ FALLBACK_CSV = DATA_DIR / "pcsaft_data.csv"
 ESPER_CSV = DATA_DIR / "esper_pcsaft.csv"
 MLSAFT_CSV = DATA_DIR / "mlsaft_pcsaft.csv"
 FLUORINATED_CSV = DATA_DIR / "fluorinated_pcsaft.csv"
+SPT_PCSAFT_CSV = DATA_DIR / "spt_pcsaft.csv"
 
 TARGETS = ["m", "sigma", "epsilon_k"]
 
@@ -103,6 +104,57 @@ def _load_combined() -> pd.DataFrame:
     return combined
 
 
+def _load_all() -> pd.DataFrame:
+    """Load Esper + ML-SAFT + SPT-PCSAFT with InChI deduplication.
+
+    Priority order for duplicate molecules: Esper > ML-SAFT > SPT-PCSAFT.
+    This is the full training corpus (~13,764 molecules before dedup).
+    """
+    dfs = []
+
+    if ESPER_CSV.exists():
+        esper_df = pd.read_csv(ESPER_CSV)
+        esper_df = esper_df.dropna(subset=["smiles", "m", "sigma", "epsilon_k"])
+        esper_df["_source"] = "esper"
+        dfs.append(esper_df)
+        logger.info("Loaded Esper dataset: %d molecules", len(esper_df))
+
+    if MLSAFT_CSV.exists():
+        mlsaft_df = pd.read_csv(MLSAFT_CSV)
+        mlsaft_df = mlsaft_df.dropna(subset=["smiles", "m", "sigma", "epsilon_k"])
+        mlsaft_df["_source"] = "mlsaft"
+        dfs.append(mlsaft_df)
+        logger.info("Loaded ML-SAFT dataset: %d molecules", len(mlsaft_df))
+
+    if SPT_PCSAFT_CSV.exists():
+        spt_df = pd.read_csv(SPT_PCSAFT_CSV)
+        spt_df = spt_df.dropna(subset=["smiles", "m", "sigma", "epsilon_k"])
+        spt_df["_source"] = "spt_pcsaft"
+        dfs.append(spt_df)
+        logger.info("Loaded SPT-PCSAFT dataset: %d molecules", len(spt_df))
+
+    if not dfs:
+        raise FileNotFoundError(
+            "No datasets found for source='all'. Need at least one of: "
+            "esper_pcsaft.csv, mlsaft_pcsaft.csv, spt_pcsaft.csv"
+        )
+
+    if len(dfs) == 1:
+        df = dfs[0].drop(columns=["_source"], errors="ignore")
+        return df
+
+    combined = pd.concat(dfs, ignore_index=True)
+    # Sort so higher-priority sources come first: esper < mlsaft < spt_pcsaft
+    priority = {"esper": 0, "mlsaft": 1, "spt_pcsaft": 2}
+    combined["_priority"] = combined["_source"].map(priority)
+    combined = combined.sort_values("_priority")
+    combined = deduplicate_by_inchi(combined)
+    combined = combined.drop(columns=["_source", "_priority"], errors="ignore")
+
+    logger.info("Full dataset (all) after InChI deduplication: %d molecules", len(combined))
+    return combined
+
+
 def load_data(source: str = "auto") -> pd.DataFrame:
     """Load PC-SAFT parameter data from CSV.
 
@@ -112,8 +164,10 @@ def load_data(source: str = "auto") -> pd.DataFrame:
         "esper" to use Esper dataset,
         "mlsaft" to use ML-SAFT dataset,
         "fluorinated" to use fluorinated compounds only,
+        "spt_pcsaft" to use SPT-PCSAFT dataset,
         "fallback" for curated CSV,
-        "combined" to load all available with deduplication,
+        "combined" to load Esper + ML-SAFT + fluorinated with deduplication,
+        "all" to load Esper + ML-SAFT + SPT-PCSAFT (~13,764 molecules),
         "auto" to prefer combined if multiple exist, else single source, else fallback.
 
     Returns
@@ -121,6 +175,9 @@ def load_data(source: str = "auto") -> pd.DataFrame:
     pd.DataFrame
         DataFrame with columns: smiles, m, sigma, epsilon_k (and optionally name, source).
     """
+    if source == "all":
+        return _load_all()
+
     if source == "combined":
         return _load_combined()
 
@@ -156,7 +213,16 @@ def load_data(source: str = "auto") -> pd.DataFrame:
                 "python scripts/generate_fluorinated_data.py"
             )
         path = FLUORINATED_CSV
+    elif source == "spt_pcsaft":
+        if not SPT_PCSAFT_CSV.exists():
+            raise FileNotFoundError(
+                f"{SPT_PCSAFT_CSV} not found. Run: python -m model.data.download_spt_pcsaft"
+            )
+        path = SPT_PCSAFT_CSV
+    elif source == "fallback":
+        path = FALLBACK_CSV
     else:
+        logger.warning("Unknown source %r, falling back to %s", source, FALLBACK_CSV)
         path = FALLBACK_CSV
 
     df = pd.read_csv(path)

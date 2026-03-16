@@ -7,7 +7,7 @@
 
 ## Overview
 
-Step 30 prepared the pcsaft-predict repository for public release on GitHub and PyPI. This involved adding licenses, CI/CD pipelines, issue templates, a changelog, and conducting pre-release audits for data provenance, secrets, and large files.
+Step 30 prepared the pcsaft-predict repository for public release. The primary deliverable is a **hosted web UI on GCP** (Streamlit portal + FastAPI backend), with the PyPI package serving as a secondary SDK for programmatic access. This step involved adding licenses, CI/CD pipelines, issue templates, a changelog, and conducting pre-release audits for data provenance, secrets, and large files.
 
 ---
 
@@ -21,12 +21,12 @@ Step 30 prepared the pcsaft-predict repository for public release on GitHub and 
 - Permits commercial and academic use without restrictions
 
 **Data License** (`LICENSE-DATA`):
-- CC-BY-4.0 (Creative Commons Attribution) for datasets
-- Applies to `data/pcsaft_novel_predictions_v1.csv`
-- Requires attribution to upstream training data sources (Esper et al., ML-SAFT, SPT-PCSAFT)
-- Includes explicit notice that dataset contains model-generated predictions (not experimental data)
+- **CC-BY-NC-SA 4.0** (Creative Commons Attribution-NonCommercial-ShareAlike) for the novel predictions dataset and GNN/ensemble model weights
+- CC-BY-4.0 remains appropriate for RF weights (trained only on Esper CC-BY-4.0 data)
+- The NC-SA constraint propagates from SPT-PCSAFT (Winter et al., 2023, CC-BY-NC-SA 4.0) which is part of the GNN training data
+- A free hosted UI is compliant; charging for API access to GNN/ensemble predictions is not
 
-**Rationale**: MIT for code maximizes adoption; CC-BY-4.0 for data ensures proper attribution while permitting derivative works.
+**Rationale**: MIT for code maximizes adoption; CC-BY-NC-SA 4.0 for data/GNN weights reflects the most restrictive upstream license (SPT-PCSAFT).
 
 ---
 
@@ -89,23 +89,23 @@ Step 30 prepared the pcsaft-predict repository for public release on GitHub and 
 | Data Source | Molecules | License | Redistribution Status |
 |-------------|-----------|---------|----------------------|
 | Esper et al. (Figshare 6821654) | 1,801 | CC-BY-4.0 | ✅ VERIFIED |
-| Felton et al. ML-SAFT (GitHub) | 10,500+ | MIT (assumed) | ⚠️ UNVERIFIED |
-| Thol et al. SPT-PCSAFT | ~1,500 | Unknown | ⚠️ UNVERIFIED |
+| Felton et al. ML-SAFT (GitHub) | 10,500+ | MIT | ✅ VERIFIED |
+| Winter et al. SPT-PCSAFT (arXiv 2309.12404) | ~1,500 | CC-BY-NC-SA 4.0 | ✅ VERIFIED |
 
 **Model Weight Redistribution**:
 - **Random Forest** (`rf_*.joblib`): ✅ Safe (trained on Esper CC-BY-4.0 data only)
-- **GNN** (`gnn_pcsaft.pt`): ⚠️ Defer until ML-SAFT + SPT-PCSAFT verified
-- **Ensemble**: ⚠️ Defer until GNN verified
+- **GNN** (`gnn_pcsaft.pt`): ✅ Redistributable under CC-BY-NC-SA 4.0 (non-commercial, share-alike)
+- **Ensemble**: ✅ Redistributable under CC-BY-NC-SA 4.0 (inherits GNN constraint)
 
 **Novel Predictions Dataset**:
-- ✅ Safe to release with CC-BY-4.0 license
-- Model-generated predictions are distinct from training data
-- Attribution required for upstream sources
+- ✅ Redistributable under CC-BY-NC-SA 4.0
+- Model-generated predictions are derivative works of the training data
+- Attribution required for all three upstream sources
 
-**Recommendation**:
-- Release code + Random Forest weights immediately
-- Defer GNN/ensemble weights pending upstream verification
-- Contact ML-SAFT and SPT-PCSAFT authors for explicit redistribution permission
+**Implications for Hosted UI**:
+- A free hosted Streamlit portal on GCP is fully compliant with CC-BY-NC-SA 4.0
+- Charging for API access would violate the non-commercial clause
+- PyPI package (code only, MIT) is unaffected
 
 ---
 
@@ -218,14 +218,14 @@ git rev-list --objects --all | \
 
 The RF model is trained exclusively on Esper et al. data (CC-BY-4.0), making it safe to attach to GitHub Releases immediately. This provides a working baseline for users while GNN verification is pending.
 
-### 2. GNN Weights Require Upstream Verification
+### 2. GNN Weights Licensed Under CC-BY-NC-SA 4.0
 
-The GNN model was trained on a mixture of:
-- Esper et al. (CC-BY-4.0, verified ✅)
-- ML-SAFT (license unverified ⚠️)
-- SPT-PCSAFT (source unclear, likely Dortmund Data Bank ⚠️)
+All upstream licenses are now verified:
+- Esper et al. (CC-BY-4.0) ✅
+- ML-SAFT / Felton et al. (MIT) ✅
+- SPT-PCSAFT / Winter et al. (CC-BY-NC-SA 4.0) ✅
 
-**Action Required**: Contact Felton et al. (ML-SAFT) and verify SPT-PCSAFT source before attaching GNN weights to public release.
+The most restrictive upstream license (CC-BY-NC-SA 4.0 from SPT-PCSAFT) governs the GNN weights and any derived predictions. GNN weights can be released with a CC-BY-NC-SA 4.0 notice. A free hosted UI is compliant.
 
 ### 3. Large Files Remain in Git History
 
@@ -259,7 +259,7 @@ This lowers the barrier to community-driven model improvements.
 | Deliverable | Status | Notes |
 |-------------|--------|-------|
 | LICENSE (MIT) | ✅ Complete | MIT for code |
-| LICENSE-DATA (CC-BY-4.0) | ✅ Complete | CC-BY-4.0 for datasets with data provenance notice |
+| LICENSE-DATA (CC-BY-NC-SA 4.0) | ✅ Complete | CC-BY-NC-SA 4.0 for GNN/ensemble/dataset (SPT-PCSAFT upstream); CC-BY-4.0 for RF weights |
 | .github/workflows/ci.yml | ✅ Enhanced | Improved existing workflow (split into 4 jobs) |
 | Issue templates | ✅ Complete | bug_report, feature_request, model_contribution |
 | CHANGELOG.md | ✅ Complete | v1.0.0 entry + unreleased roadmap |
@@ -333,7 +333,18 @@ uv run pytest tests/test_descriptors.py tests/test_morgan.py tests/test_filters.
 
 **Release Notes**: Copy CHANGELOG.md v1.0.0 section
 
-### PyPI Publication
+### Hosted UI Deployment (Primary Deliverable)
+
+The primary release is a **hosted Streamlit portal on GCP/GKE** providing:
+1. **Predict**: Enter SMILES, get PC-SAFT parameters + uncertainty from the best model (GNN)
+2. **Similarity search**: Find closest matches in the 4,663-molecule prediction database
+3. **Screen**: Batch screening with fluorination safety filters
+
+Deployment steps are detailed in Step 34 (`docs/steps/34_gcp_deployment.md`).
+
+### PyPI Publication (Secondary)
+
+PyPI serves as a secondary SDK for programmatic access:
 
 **Option A** (Manual, for first release):
 ```bash
@@ -351,7 +362,7 @@ twine upload dist/*
 ## Readiness Checklist
 
 - [x] `LICENSE` file exists (MIT)
-- [x] `LICENSE-DATA` or data license documented (CC-BY-4.0)
+- [x] `LICENSE-DATA` or data license documented (CC-BY-NC-SA 4.0 for GNN/ensemble/dataset; CC-BY-4.0 for RF)
 - [x] `.github/workflows/ci.yml` runs lint, test-core, test-package, build
 - [x] CI passes locally (lint + core tests verified)
 - [x] Issue templates exist (bug_report, feature_request, model_contribution)
@@ -361,12 +372,13 @@ twine upload dist/*
 - [x] `.gitignore` covers all generated artifacts
 - [x] Dependency pinning verified (package well-pinned)
 - [ ] `v1.0.0` tag created (DEFERRED per instructions)
-- [ ] Upstream data licenses verified (ML-SAFT, SPT-PCSAFT) — **BLOCKING**
+- [x] Upstream data licenses verified (ML-SAFT = MIT, SPT-PCSAFT = CC-BY-NC-SA 4.0)
 - [ ] GitHub Release created — **PENDING TAG**
-- [ ] `pip install pcsaft-predict` from PyPI — **PENDING RELEASE**
+- [ ] `pip install pcsaft-predict` from PyPI — **PENDING RELEASE** (secondary deliverable)
+- [ ] Hosted Streamlit portal on GCP/GKE — **PENDING** (primary deliverable, see Step 34)
 - [x] Report at `docs/reports/30_release_preparation.md`
 
-**Status**: ✅ 11/14 complete (3 deferred pending upstream verification)
+**Status**: ✅ 13/15 complete (hosted UI deployment and PyPI publish pending)
 
 ---
 
@@ -395,16 +407,18 @@ twine upload dist/*
 ## Conclusion
 
 Step 30 successfully prepared the pcsaft-predict repository for public release. All deliverables are complete:
-- Licensing (MIT code, CC-BY-4.0 data)
+- Licensing (MIT code, CC-BY-NC-SA 4.0 for GNN/ensemble/dataset, CC-BY-4.0 for RF)
 - CI/CD pipeline (4 parallel jobs)
 - Community templates (bug reports, feature requests, model contributions)
 - Comprehensive audits (provenance, secrets, large files)
 - Version 1.0.0 changelog
 
-**Key Blocker**: Upstream data license verification for ML-SAFT and SPT-PCSAFT must be completed before releasing GNN/ensemble weights. Random Forest weights are safe to release immediately.
+All upstream data licenses are now verified (ML-SAFT = MIT, SPT-PCSAFT = CC-BY-NC-SA 4.0). GNN and ensemble weights can be released under CC-BY-NC-SA 4.0.
 
-**Recommendation**: Proceed with v1.0.0 tag and GitHub Release containing code + RF weights. Distribute GNN weights separately after upstream verification.
+**Primary deliverable**: Hosted Streamlit portal on GCP/GKE (free, compliant with CC-BY-NC-SA 4.0). See Step 34 for deployment plan.
+
+**Secondary deliverable**: PyPI package (`pip install pcsaft-predict`) for programmatic access.
 
 ---
 
-**Step 30 Complete**: ✅ Ready for public release (with RF weights; GNN pending verification)
+**Step 30 Complete**: ✅ Ready for public release (all model weights, licenses verified)

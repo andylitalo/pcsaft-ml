@@ -153,7 +153,7 @@ Yes:
 2. **InChI/InChIKey generation**: Computed from canonical SMILES for unique identification.
 3. **Deduplication**: Removed duplicate InChIKeys (50 molecules).
 4. **Descriptor calculation**: RDKit 2D descriptors, SA score, elemental counts computed.
-5. **Applicability domain tagging**: Tanimoto similarity to training set computed; `ad_in_domain` flag set for similarity > 0.3.
+5. **Applicability domain tagging**: Tanimoto similarity to nearest training-set neighbor computed; `ad_in_domain` flag set for similarity >= 0.4.
 
 **Was the "raw" data saved?**
 
@@ -211,7 +211,7 @@ Yes:
 
 **Will the dataset be distributed to third parties?**
 
-Yes. Dataset released under MIT License as part of public GitHub repository.
+Yes. Dataset released under CC-BY-NC-SA 4.0 as part of public GitHub repository.
 
 **How will the dataset be distributed?**
 
@@ -225,7 +225,7 @@ Released alongside project completion (March 2026).
 
 **Will the dataset be distributed under a copyright or IP license?**
 
-**MIT License**. Free to use, modify, and redistribute with attribution.
+**CC-BY-NC-SA 4.0** (Creative Commons Attribution-NonCommercial-ShareAlike). The dataset includes predictions from models trained on SPT-PCSAFT data (CC-BY-NC-SA 4.0), which propagates non-commercial and share-alike requirements. See `LICENSE-DATA` for full terms.
 
 **Do any export controls or regulatory restrictions apply?**
 

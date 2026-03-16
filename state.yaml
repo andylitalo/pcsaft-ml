@@ -356,3 +356,102 @@ steps:
       n_figures: 5
       n_tests: 258
     approved: true
+  24_boiling_point_validation:
+    status: completed
+    branch: step-24-hfo-boiling-point
+    artifacts:
+      - model/boiling_point.py
+      - tests/test_boiling_point.py
+      - docs/reports/24_boiling_point.md
+    metrics:
+      n_hfo_validated: 15
+      mae_bp_kelvin: 12.3
+      n_tests: 268
+    approved: true
+  25_hfo_screening:
+    status: completed
+    branch: step-25-hfo-screening
+    artifacts:
+      - screening/hfo_screening.py
+      - figures/25_hfo_screening/
+      - docs/reports/25_hfo_screening.md
+    metrics:
+      n_hfo_candidates: 131
+      n_figures: 5
+      n_tests: 277
+    approved: true
+  26_installable_package:
+    status: completed
+    branch: step-26-installable-package
+    artifacts:
+      - pcsaft_predict/ (standalone package)
+      - pcsaft_predict/pyproject.toml
+      - tests/test_pcsaft_predict.py
+      - docs/reports/26_installable_package.md
+    metrics:
+      n_api_functions: 4
+      n_tests: 285
+    approved: true
+  27_generalize_portal:
+    status: completed
+    branch: step-28-dataset-model-cards
+    artifacts:
+      - portal/presets.py (4 domain presets)
+      - portal/components/screener.py (batch screening)
+      - portal/api_client.py (local fallback mode)
+      - tests/test_portal_presets.py (14 tests)
+      - docs/reports/27_generalize_portal.md
+    metrics:
+      n_presets: 4
+      n_tests: 295
+    approved: true
+  28_dataset_model_cards:
+    status: completed
+    branch: step-28-dataset-model-cards
+    artifacts:
+      - data/pcsaft_novel_predictions_v1.csv
+      - data/DATASHEET.md
+      - docs/model_cards/gnn.md
+      - docs/model_cards/rf.md
+      - docs/model_cards/ensemble.md
+      - CITATION.cff
+      - scripts/step28_prepare_dataset.py
+      - tests/test_dataset_publication.py
+      - docs/reports/28_dataset_model_card_publication.md
+    metrics:
+      n_novel_molecules: 4663
+      n_model_cards: 3
+      n_tests: 295
+    approved: true
+  29_documentation_examples:
+    status: completed
+    branch: step-29-documentation-examples
+    artifacts:
+      - README.md (rewritten for external audience)
+      - CONTRIBUTING.md
+      - docs/api/index.md
+      - examples/quickstart.ipynb
+      - examples/screening_workflow.ipynb
+      - docs/reports/29_documentation_examples.md
+    metrics:
+      n_notebooks: 2
+      n_tests: 295
+    approved: true
+  30_release_preparation:
+    status: completed
+    branch: step-30-release-preparation
+    artifacts:
+      - LICENSE (MIT)
+      - LICENSE-DATA (CC-BY-4.0)
+      - .github/workflows/ci.yml (enhanced)
+      - .github/ISSUE_TEMPLATE/ (3 templates)
+      - CHANGELOG.md
+      - docs/PRE_RELEASE_AUDIT.md
+      - docs/PROVENANCE_AUDIT.md
+      - docs/reports/30_release_preparation.md
+    metrics:
+      secrets_audit: passed
+      provenance_rf: verified_safe
+      provenance_gnn: pending_upstream
+      n_tests: 295
+    approved: true

@@ -9,18 +9,21 @@ Step 28 packages the novel PC-SAFT predictions into a publication-ready dataset 
 ### 28.1 Publication Dataset (`data/pcsaft_novel_predictions_v1.csv`)
 
 **Dataset Statistics**:
+
 - **Total molecules**: 4,663 unique molecules (by InChIKey)
 - **Columns**: 26 fields per molecule (identity, descriptors, predictions, uncertainties, thermodynamics, screening metrics)
 - **Chemical coverage**: 3,118 HCFOs, 1,471 HFOs, 74 Cl-olefins
 - **Thermodynamic enrichment**: 785 molecules (17%) with EOS-derived properties (boiling point, vapor pressure, Henry's constant)
-- **Applicability domain**: 0 molecules flagged as "in_domain" — all predictions are extrapolations (conservative AD threshold)
+- **Applicability domain**: 886 molecules (19%) flagged as "in_domain" (Tanimoto >= 0.4 to nearest training neighbor); remaining 3,777 are extrapolations
 
 **Parameter Ranges** (across all 4,663 molecules):
+
 - m (segments): 1.933 - 9.670 (mean 3.42)
 - σ (Å): 3.086 - 3.850 (mean 3.52)
 - ε/k (K): 154.671 - 322.000 (mean 237.8)
 
 **Data Provenance**:
+
 - Molecular structures: Systematic enumeration (halogenated C3-C6 hydrocarbons) + similarity search (cyclopentane, HFO-1234yf neighbors)
 - PC-SAFT predictions: Inverse-variance weighted ensemble (RF + GNN)
 - Uncertainties: Ensemble standard deviations from 5-fold cross-validation
@@ -28,6 +31,7 @@ Step 28 packages the novel PC-SAFT predictions into a publication-ready dataset 
 - Screening distances: Feature-space Tanimoto distance to cyclopentane (cyc_distance) and HFO-1234yf (hfo_distance)
 
 **Header Comments**: CSV includes 6-line header (starting with #) documenting:
+
 1. This is a model-generated predictive library
 2. PC-SAFT parameters are predicted, not experimentally measured
 3. Thermodynamic properties are EOS-derived from predicted parameters
@@ -35,6 +39,7 @@ Step 28 packages the novel PC-SAFT predictions into a publication-ready dataset 
 5. Experimental validation required before production deployment
 
 **Missing Data**:
+
 - `name` (IUPAC): Empty for all molecules (RDKit does not generate systematic names; would require PubChem API or manual curation)
 - `backbone`: Only 785 molecules (HFO-centric subset) have backbone annotations (acyclic_C5, cyclopropane_C3, etc.)
 - `boiling_point_K`, `vp_298K_Pa`, `density_298K_mol_m3`: Only 785 molecules (HFO subset) have EOS-derived thermodynamics
@@ -43,15 +48,17 @@ Step 28 packages the novel PC-SAFT predictions into a publication-ready dataset 
 ### 28.2 Datasheet (`data/DATASHEET.md`)
 
 **Framework**: Follows Gebru et al. (2021) "Datasheets for Datasets" with 7 sections:
+
 1. **Motivation**: Explains dataset purpose (refrigerant screening library) and funding context
 2. **Composition**: Documents 4,612+ instances, 26 fields, molecular class distribution, missing data patterns
 3. **Collection Process**: Describes model-generation pipeline (systematic enumeration → ML prediction → EOS enrichment)
 4. **Preprocessing**: Details SMILES canonicalization, InChI/InChIKey generation, deduplication, descriptor calculation
 5. **Uses**: Lists intended uses (screening, active learning, inverse design) and prohibited uses (direct engineering, regulatory submissions)
-6. **Distribution**: MIT License via GitHub, versioned releases with Zenodo DOI (planned)
+6. **Distribution**: CC-BY-NC-SA 4.0 for dataset and GNN/ensemble weights (due to SPT-PCSAFT upstream license); MIT for source code. Versioned releases with Zenodo DOI (planned)
 7. **Maintenance**: Quarterly re-evaluation, annual retraining schedule, versioned updates
 
 **Key Warnings Documented**:
+
 - "This is NOT an experimental dataset" — repeated 5 times across datasheet
 - "All PC-SAFT parameters are model predictions" — emphasized in abstract and composition sections
 - Uncertainty underestimation for out-of-distribution molecules
@@ -59,6 +66,7 @@ Step 28 packages the novel PC-SAFT predictions into a publication-ready dataset 
 - Zero molecules have experimental validation
 
 **Data Quality Issues Disclosed**:
+
 - Stereoisomer redundancy (some molecules appear multiple times as different stereoisomers)
 - Provenance mixing in training data (72% experimental, 18% literature, 10% model-generated)
 - Refrigerant-centric bias in training set (skewed toward C2-C6 fluorinated hydrocarbons)
@@ -71,35 +79,41 @@ Created three detailed model cards following Mitchell et al. (2019) framework:
 #### GNN Model Card (`docs/model_cards/gnn.md`)
 
 **Model Architecture**: 4-layer Graph Isomorphism Network (GIN), 964K parameters
+
 - Input: Molecular graph (11 node features, 4 edge features)
 - Encoder: 4 GIN convolution layers (hidden dim 256)
 - Decoder: Multi-task MLP (256 → 128 → 1 per parameter)
 
 **Performance** (test set n=1,376):
+
 - R²(m) = 0.762 (MAE 0.312)
 - R²(σ) = 0.774 (MAE 0.134 Å)
 - R²(ε/k) = 0.731 (MAE 18.42 K)
 
-**Training Data**: 13,764 molecules (72% experimental, 18% literature, 10% model-generated)
+**Training Data**: Documented as 13,764 molecules (72% experimental, 18% literature, 10% model-generated). Note: the `load_data("all")` path was not correctly implemented at training time (see fix in `model/data/load.py`); the actual training corpus size should be verified after retraining on the unified dataset (Step 31).
 
 **Limitations Documented**:
+
 - Associating compounds not supported (no ε_AB, κ_AB prediction)
 - Extrapolation risk for Tanimoto < 0.3 to training set
 - Uncertainty underestimation for out-of-distribution molecules
 - No physical constraints enforced (van der Waals inequality, critical point relations)
-- Environmental impact: ~8 GPU-hours training (~1.2 kg CO₂e)
+- Environmental impact: ~~8 GPU-hours training (~~1.2 kg CO₂e)
 
 **Ethical Considerations**:
+
 - Dual-use risk: Could predict properties for ozone-depleting substances (no built-in safeguards)
 - Recommendation: Pair with automated Montreal Protocol compliance screening
 
 #### RF Model Card (`docs/model_cards/rf.md`)
 
 **Model Architecture**: Scikit-learn RandomForestRegressor, 100 trees per target
+
 - Input: 2,150-dimensional feature vector (200 RDKit descriptors + 2048-bit Morgan fingerprint)
 - Total nodes: ~1.8M (non-parametric, data-driven)
 
 **Performance** (test set n=356, Esper holdout):
+
 - R²(m) = 0.620 (MAE 0.585)
 - R²(σ) = 0.354 (MAE 0.189 Å)
 - R²(ε/k) = 0.332 (MAE 26.83 K)
@@ -107,17 +121,20 @@ Created three detailed model cards following Mitchell et al. (2019) framework:
 **Training Data**: 1,801 molecules (100% experimental, Esper collection)
 
 **Feature Importance** (top 3):
+
 1. Molecular weight (8.2% Gini importance)
 2. MorganFP bit 512 (3.1%, aromatic/cyclic hash)
 3. NumRotatableBonds (2.8%)
 
 **Limitations Documented**:
+
 - 2D descriptor ceiling: Cannot capture 3D conformational effects or stereochemistry
 - Extrapolation failure: Tree-based models revert to training mean for MW > 350 Da
 - Fingerprint collisions: ~1% collision rate in Morgan fingerprints
 - Overfitting: Train R²=0.90-0.95 vs test R²=0.33-0.62 (high variance, 2,150 features on 1,445 samples)
 
 **Comparison to GNN**:
+
 - GNN outperforms RF by ΔR²=+0.14 (m), +0.42 (σ), +0.40 (ε/k)
 - RF faster inference (~0.5 ms vs 50 ms per molecule)
 - RF more interpretable (feature importance readily available)
@@ -125,10 +142,12 @@ Created three detailed model cards following Mitchell et al. (2019) framework:
 #### Ensemble Model Card (`docs/model_cards/ensemble.md`)
 
 **Model Architecture**: Inverse-variance weighted ensemble (RF + GNN)
+
 - Weight per model: w_i = 1 / σ²_i (based on uncertainty estimates)
 - Final prediction: ŷ = (w_RF · ŷ_RF + w_GNN · ŷ_GNN) / (w_RF + w_GNN)
 
 **Performance** (test set n=356, Esper holdout):
+
 - R²(m) = 0.533 (MAE 0.651) — **WORSE than RF baseline (-0.087 ΔR²)**
 - R²(σ) = 0.078 (MAE 0.223 Å) — **WORSE than RF baseline (-0.276 ΔR²)**
 - R²(ε/k) = 0.133 (MAE 31.24 K) — **WORSE than RF baseline (-0.199 ΔR²)**
@@ -136,18 +155,21 @@ Created three detailed model cards following Mitchell et al. (2019) framework:
 **Critical Finding**: **ENSEMBLE UNDERPERFORMS RF BASELINE**
 
 **Root Cause Analysis**:
+
 1. **GNN overconfidence**: GNN reports low uncertainties (σ_GNN ~ 0.1-0.2) even for extrapolations
 2. **Weighting failure**: Inverse-variance assigns 82% weight to GNN, 18% to RF (due to GNN's low uncertainties)
-3. **Dataset mismatch**: GNN trained on 13,764 molecules, RF on 1,801; test set is Esper (RF's training set) → GNN is extrapolating
+3. **Dataset mismatch**: GNN trained on a different pool than RF; the shared test set is drawn from Esper (RF's training distribution), putting GNN at a disadvantage. Additionally, `load_data("all")` was not properly implemented, meaning the GNN may not have been trained on the full intended corpus. Retraining GNN on a unified dataset including Esper (Step 31) is expected to resolve this.
 4. **Uncalibrated uncertainties**: Neither RF nor GNN uncertainties well-calibrated; combining amplifies error
 
 **Warnings Documented**:
+
 - "⚠️ DO NOT USE THIS ENSEMBLE IN PRODUCTION" — header in red
 - "DEPRECATED" flag in version number (v1.0 DEPRECATED)
 - Explicit R² comparison table showing ensemble < RF
 - Recommendation: Use RF for Esper-like molecules, GNN for novel chemistries, discard ensemble
 
 **Lessons Learned Section**:
+
 - Uncertainty calibration is critical for ensembling
 - Dataset mismatch causes incompatible error patterns
 - Overconfidence is insidious (GNN's low uncertainties upweight poor predictions)
@@ -155,6 +177,7 @@ Created three detailed model cards following Mitchell et al. (2019) framework:
 - Always test equal weighting before assuming inverse-variance is optimal
 
 **Future Improvements**:
+
 - v1.1: Equal weighting (w_RF = w_GNN = 0.5)
 - v1.2: Isotonic regression uncertainty calibration
 - v2.0: Joint training on unified dataset
@@ -164,6 +187,7 @@ Created three detailed model cards following Mitchell et al. (2019) framework:
 **Format**: Citation File Format (CFF) v1.2.0
 
 **Fields**:
+
 - Title: "pcsaft-predict"
 - Type: software
 - License: MIT
@@ -195,12 +219,14 @@ Created 10 comprehensive tests:
 ### Publication Readiness
 
 **Strengths**:
+
 - Comprehensive documentation: 3 model cards (21 pages total), datasheet (8 pages), dataset header comments
 - Transparent limitations: All known issues documented (GNN overconfidence, ensemble failure, training data circular dependencies)
 - Provenance tracking: Every molecule tagged with `parameter_source = "model_predicted"`, uncertainty estimates included
 - Reproducibility: CITATION.cff enables proper attribution, all data versioned
 
 **Remaining Gaps**:
+
 - IUPAC names missing (would require PubChem API integration or manual curation)
 - Thermodynamic properties sparse (only 17% coverage) — full teqp calculation for all 4,663 molecules would take ~10 hours
 - Experimental validation: Zero molecules validated experimentally (all predictions are computationally derived)
@@ -208,23 +234,28 @@ Created 10 comprehensive tests:
 ### Dataset Quality Assessment
 
 **Molecular Diversity**:
+
 - 3 molecular classes: HCFO (67%), HFO (32%), Cl-olefin (1.6%)
 - Carbon count: C3-C6 (mean C4.8)
 - Halogen count: F (0-4), Cl (0-2), Br (0), I (0)
 - Double bonds: 95% have C=C double bond (olefin character)
 
 **Prediction Uncertainty**:
+
 - m_std: 0.31-0.77 (mean 0.38) — moderate uncertainty
 - sigma_std: 0.19-0.30 (mean 0.23) — moderate uncertainty
 - epsilon_k_std: 26-45 K (mean 32 K) — high uncertainty (~13% of mean ε/k)
 
 **Applicability Domain**:
-- All 4,663 molecules flagged as `ad_in_domain = False` — conservative threshold (Tanimoto < 0.3 to training set)
-- This is appropriate: All molecules are novel (not in training set), so flagging as extrapolations is scientifically honest
+
+- 886 of 4,663 molecules (19%) flagged as `ad_in_domain = True` (Tanimoto >= 0.4 to nearest training neighbor)
+- Remaining 3,777 molecules are extrapolations with lower structural similarity to the training set
+- Note: An earlier version of this report stated 0 in-domain molecules due to a bug in `scripts/step28_prepare_dataset.py` where the ad_flag mapping compared against `"ok"` instead of the actual value `"in_domain"`. This has been corrected.
 
 ### Documentation Best Practices
 
 **Model Card Compliance**:
+
 - All 6 required sections present (Model Details, Intended Use, Training Data, Evaluation, Limitations, Ethics)
 - Comparison tables provided (GNN vs RF, Ensemble vs RF)
 - Performance stratified by molecular class (hydrocarbons, HFOs, ethers, etc.)
@@ -232,12 +263,14 @@ Created 10 comprehensive tests:
 - Environmental impact estimated (GNN training: 1.2 kg CO₂e)
 
 **Datasheet Compliance**:
+
 - All 7 Gebru framework sections present (Motivation, Composition, Collection, Preprocessing, Uses, Distribution, Maintenance)
 - Prohibited uses clearly stated ("DO NOT USE FOR: direct engineering design, regulatory submissions")
 - Data quality issues disclosed (stereoisomer redundancy, provenance mixing, refrigerant-centric bias)
 - Update schedule documented (quarterly re-evaluation, annual retraining)
 
 **Transparency Highlights**:
+
 - Ensemble failure prominently documented (not hidden) — demonstrates scientific integrity
 - GNN overconfidence issue explained with root cause analysis
 - Circular training dependency disclosed (10% of GNN training data is model-generated)
@@ -246,6 +279,7 @@ Created 10 comprehensive tests:
 ## Deviations from Step Guide
 
 **No major deviations**. All deliverables completed as specified:
+
 - Dataset script creates 4,663-molecule CSV with 26 columns ✓
 - Datasheet follows Gebru et al. framework ✓
 - Model cards follow Mitchell et al. framework ✓
@@ -253,22 +287,23 @@ Created 10 comprehensive tests:
 - Tests cover all required validations ✓
 
 **Minor adaptations**:
+
 - Added n_carbon computation in script (not in source data)
-- Used conservative AD threshold (flagged all molecules as out-of-domain) — more honest than claiming in-domain when Tanimoto < 0.3
+- AD threshold uses Tanimoto >= 0.4 for in-domain classification; 886 of 4,663 molecules pass this threshold
 - Ensemble model card includes "DEPRECATED" flag and extensive failure analysis — this goes beyond minimal requirements but improves scientific value
 
 ## Readiness Check
 
 ### Step 28 Completion Criteria
 
-- [x] Dataset CSV created with 26+ columns, no duplicate InChIKeys (4,663 unique molecules)
-- [x] Dataset has header comment documenting model-generated nature and usage limitations
-- [x] DATASHEET.md follows Gebru et al. framework with 7 sections
-- [x] Three model cards (GNN, RF, Ensemble) created with all required sections
-- [x] Model cards document performance metrics, training data, limitations, ethics
-- [x] CITATION.cff created at repo root with CFF v1.2.0 format
-- [x] Tests validate dataset quality and documentation completeness (10/10 passing)
-- [x] Ruff linter passes on all new Python files (0 errors)
+- Dataset CSV created with 26+ columns, no duplicate InChIKeys (4,663 unique molecules)
+- Dataset has header comment documenting model-generated nature and usage limitations
+- DATASHEET.md follows Gebru et al. framework with 7 sections
+- Three model cards (GNN, RF, Ensemble) created with all required sections
+- Model cards document performance metrics, training data, limitations, ethics
+- CITATION.cff created at repo root with CFF v1.2.0 format
+- Tests validate dataset quality and documentation completeness (10/10 passing)
+- Ruff linter passes on all new Python files (0 errors)
 
 **All completion criteria met.** Step 28 is complete and ready for publication.
 
@@ -283,31 +318,33 @@ Created 10 comprehensive tests:
 
 ### Medium-Term (v2.0 Release)
 
-5. **Experimental validation campaign**: Synthesize and measure top 10 molecules to validate predictions
-6. **Recalibrate uncertainties**: Use experimental data to recalibrate GNN/RF uncertainty estimates via isotonic regression
-7. **Fix ensemble**: Implement equal-weighted ensemble (v1.1) and stacked meta-learner (v2.0)
-8. **Expand chemical space**: Add C7-C8 hydrocarbons, sulfur-containing compounds, siloxanes
+1. **Experimental validation campaign**: Synthesize and measure top 10 molecules to validate predictions
+2. **Recalibrate uncertainties**: Use experimental data to recalibrate GNN/RF uncertainty estimates via isotonic regression
+3. **Fix ensemble**: Implement equal-weighted ensemble (v1.1) and stacked meta-learner (v2.0)
+4. **Expand chemical space**: Add C7-C8 hydrocarbons, sulfur-containing compounds, siloxanes
 
 ### Long-Term (v3.0 Release)
 
-9. **Add association parameters**: Train separate model for ε_AB and κ_AB to handle hydrogen-bonding compounds
-10. **Physics-informed training**: Incorporate thermodynamic constraints (van der Waals, critical point) as auxiliary losses
-11. **Active learning**: Implement Bayesian optimization loop to prioritize experimental measurements
-12. **Web interface**: Deploy Streamlit app for interactive screening (Step 08 portal, not yet implemented)
+1. **Add association parameters**: Train separate model for ε_AB and κ_AB to handle hydrogen-bonding compounds
+2. **Physics-informed training**: Incorporate thermodynamic constraints (van der Waals, critical point) as auxiliary losses
+3. **Active learning**: Implement Bayesian optimization loop to prioritize experimental measurements
+4. **Web interface**: Deploy Streamlit app for interactive screening (Step 08 portal, not yet implemented)
 
 ## Files Created
 
-| File | Purpose | Lines | Status |
-|------|---------|-------|--------|
-| `scripts/step28_prepare_dataset.py` | Dataset assembly and enrichment | 283 | ✓ Passing ruff |
-| `data/pcsaft_novel_predictions_v1.csv` | Publication dataset (4,663 molecules) | 4,670 | ✓ 26 columns |
-| `data/DATASHEET.md` | Dataset documentation (Gebru framework) | 312 | ✓ 7 sections |
-| `docs/model_cards/gnn.md` | GNN model card (Mitchell framework) | 267 | ✓ 6 sections |
-| `docs/model_cards/rf.md` | RF model card (Mitchell framework) | 241 | ✓ 6 sections |
-| `docs/model_cards/ensemble.md` | Ensemble model card (Mitchell framework) | 248 | ✓ 6 sections |
-| `CITATION.cff` | Citation metadata (CFF v1.2.0) | 24 | ✓ Valid CFF |
-| `tests/test_dataset_publication.py` | Quality validation tests | 173 | ✓ 10/10 passing |
-| `docs/reports/28_dataset_model_card_publication.md` | This report | 456 | ✓ Complete |
+
+| File                                                | Purpose                                  | Lines | Status          |
+| --------------------------------------------------- | ---------------------------------------- | ----- | --------------- |
+| `scripts/step28_prepare_dataset.py`                 | Dataset assembly and enrichment          | 283   | ✓ Passing ruff  |
+| `data/pcsaft_novel_predictions_v1.csv`              | Publication dataset (4,663 molecules)    | 4,670 | ✓ 26 columns    |
+| `data/DATASHEET.md`                                 | Dataset documentation (Gebru framework)  | 312   | ✓ 7 sections    |
+| `docs/model_cards/gnn.md`                           | GNN model card (Mitchell framework)      | 267   | ✓ 6 sections    |
+| `docs/model_cards/rf.md`                            | RF model card (Mitchell framework)       | 241   | ✓ 6 sections    |
+| `docs/model_cards/ensemble.md`                      | Ensemble model card (Mitchell framework) | 248   | ✓ 6 sections    |
+| `CITATION.cff`                                      | Citation metadata (CFF v1.2.0)           | 24    | ✓ Valid CFF     |
+| `tests/test_dataset_publication.py`                 | Quality validation tests                 | 173   | ✓ 10/10 passing |
+| `docs/reports/28_dataset_model_card_publication.md` | This report                              | 456   | ✓ Complete      |
+
 
 **Total**: 9 new files, 6,674 lines of code/documentation
 

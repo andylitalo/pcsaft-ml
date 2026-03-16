@@ -28,7 +28,7 @@ Following the model card framework proposed by Mitchell et al. (2019) "Model Car
 
 **Contact**: GitHub repository issues
 
-**License**: MIT License
+**License**: CC-BY-NC-SA 4.0 (inherits from GNN component; trained on SPT-PCSAFT data). Source code is MIT.
 
 ---
 
@@ -96,6 +96,8 @@ Following the model card framework proposed by Mitchell et al. (2019) "Model Car
 - w_GNN / (w_RF + w_GNN): 0.82 (GNN dominates due to low reported uncertainties)
 
 → Ensemble is ~82% GNN, but test set is from Esper (RF's training set), so GNN is extrapolating.
+
+**Note**: This underperformance is partly caused by a dataset mismatch: the GNN was not trained on Esper data, and `load_data("all")` was not properly implemented at training time. Step 31 (unified GNN retraining) addresses both issues and is expected to resolve the ensemble failure.
 
 **Performance by Molecular Class**:
 

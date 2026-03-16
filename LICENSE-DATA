@@ -1,29 +1,43 @@
-Creative Commons Attribution 4.0 International License (CC-BY-4.0)
+Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC-BY-NC-SA 4.0)
 
-This license applies to the dataset files in this repository:
+This license applies to the dataset files and model weights in this repository:
   - data/pcsaft_novel_predictions_v1.csv
+  - model/saved/gnn_pcsaft.pt (GNN weights)
+  - model/saved/ensemble_* (ensemble weights)
+
+Note: Random Forest weights (model/saved/rf_*.joblib) are licensed under
+CC-BY-4.0, as they are trained exclusively on Esper et al. data.
 
 Copyright (c) 2026 ML Chem Project
 
-This work is licensed under the Creative Commons Attribution 4.0 International License.
-To view a copy of this license, visit http://creativecommons.org/licenses/by/4.0/
-or send a letter to Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
+This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike
+4.0 International License. To view a copy of this license, visit
+https://creativecommons.org/licenses/by-nc-sa/4.0/
 
 You are free to:
   - Share: copy and redistribute the material in any medium or format
-  - Adapt: remix, transform, and build upon the material for any purpose, even commercially
+  - Adapt: remix, transform, and build upon the material
 
 Under the following terms:
   - Attribution: You must give appropriate credit, provide a link to the license,
-    and indicate if changes were made. You may do so in any reasonable manner, but
-    not in any way that suggests the licensor endorses you or your use.
+    and indicate if changes were made.
+  - NonCommercial: You may not use the material for commercial purposes.
+  - ShareAlike: If you remix, transform, or build upon the material, you must
+    distribute your contributions under the same license as the original.
   - No additional restrictions: You may not apply legal terms or technological measures
     that legally restrict others from doing anything the license permits.
 
+WHY CC-BY-NC-SA 4.0:
+The GNN and ensemble models are trained on SPT-PCSAFT data (Winter et al., 2023,
+arXiv:2309.12404), which is licensed under CC-BY-NC-SA 4.0. The non-commercial
+and share-alike terms propagate to derivative works including model weights and
+model-generated predictions. A free hosted UI is compliant; charging for API
+access to GNN/ensemble predictions is not.
+
 IMPORTANT NOTICE:
 The dataset "pcsaft_novel_predictions_v1.csv" contains MODEL-GENERATED PREDICTIONS,
-not experimental measurements. All PC-SAFT parameters (m, σ, ε/k) are predicted by
-machine learning models trained on experimental data from literature sources.
+not experimental measurements. All PC-SAFT parameters (m, sigma, epsilon/k) are
+predicted by machine learning models trained on experimental data from literature sources.
 
 Do not use this dataset for:
   - Direct engineering design or safety calculations
@@ -34,10 +48,10 @@ Do not use this dataset for:
 See data/DATASHEET.md for full documentation of composition, limitations, and uses.
 
 Training Data Attribution:
-The models that generated this predictive library were trained on experimental data from:
-  - Esper et al. (2017), "PCP-SAFT Parameters", Figshare Collection 6821654
-  - Felton et al. (2024), "ML-SAFT: Machine Learning Framework", GitHub repository
-  - Thol et al. (SPT-PCSAFT database), Dortmund Data Bank
+The models that generated this predictive library were trained on data from:
+  - Esper et al. (2017), "PCP-SAFT Parameters", Figshare Collection 6821654 [CC-BY-4.0]
+  - Felton et al. (2024), "ML-SAFT", GitHub repository [MIT]
+  - Winter et al. (2023), "SPT-PCSAFT", arXiv:2309.12404 [CC-BY-NC-SA 4.0]
 
 Users of this dataset must cite both this predictive library AND the original training
 data sources listed in CITATION.cff.

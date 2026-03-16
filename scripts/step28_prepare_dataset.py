@@ -189,9 +189,10 @@ def main():
         df_pub.rename(columns={"tanimoto_max": "tanimoto_nn"}, inplace=True)
 
     # Rename ad_flag to ad_in_domain (convert to boolean)
+    # ad_flag values are "in_domain", "warning", "ood" (set in package_novel_predictions.py)
     if "ad_flag" in df_pub.columns:
         df_pub["ad_in_domain"] = df_pub["ad_flag"].apply(
-            lambda x: x == "ok" if pd.notna(x) else False
+            lambda x: x == "in_domain" if pd.notna(x) else False
         )
 
     # Add parameter_source (all are model-generated)
