@@ -1,0 +1,11 @@
+dossier_rank,smiles,molecular_formula,molecular_weight,m,sigma,epsilon_k,m_std,sigma_std,epsilon_k_std,credibility,ad_label,boiling_point_K,vp_ratio_298,H_ratio,safety_score,gwp_class,flammability_class,dossier_score,tier,key_caveat
+1,F/C=C\C(F)(F)[C@@H](F)C(F)(F)F,C5H3F7,196.01,4.359,3.424,183.4,0.519,0.223,14.1,screening_ready,in_domain,322.7,2.41,2.12,5,ultra_low,A1,70.3,Tier 1 (Recommended),VP 2.4x cyclopentane (marginal volatility)
+2,F/C=C\C(F)(F)[C@H](F)C(F)(F)F,C5H3F7,196.01,4.359,3.424,183.4,0.519,0.223,14.1,screening_ready,in_domain,322.7,2.41,2.12,5,ultra_low,A1,70.3,Tier 1 (Recommended),VP 2.4x cyclopentane (marginal volatility)
+3,F/C=C/C(F)(F)[C@@H](F)C(F)(F)F,C5H3F7,196.01,4.359,3.424,183.4,0.519,0.223,14.1,screening_ready,in_domain,322.7,2.41,2.12,5,ultra_low,A1,70.3,Tier 1 (Recommended),VP 2.4x cyclopentane (marginal volatility)
+4,F/C=C/C(F)(F)[C@H](F)C(F)(F)F,C5H3F7,196.01,4.359,3.424,183.4,0.519,0.223,14.1,screening_ready,in_domain,322.7,2.41,2.12,5,ultra_low,A1,70.3,Tier 1 (Recommended),VP 2.4x cyclopentane (marginal volatility)
+5,FCC(F)(F)C(F)=C(F)F,C4H2F6,164.01,4.057,3.231,183.3,0.468,0.124,16.1,screening_ready,in_domain,305.3,4.74,6.55,5,ultra_low,A1,68.7,Tier 2 (Conditional),VP 4.7x cyclopentane (too volatile for drop-in use)
+6,F/C=C(\F)C(F)(F)C(F)F,C4H2F6,164.01,4.093,3.257,180.1,0.5,0.143,20.5,screening_ready,in_domain,302.5,5.28,9.61,5,ultra_low,A1,68.5,Tier 2 (Conditional),VP 5.3x cyclopentane (too volatile for drop-in use)
+7,F/C=C(/F)C(F)(F)C(F)F,C4H2F6,164.01,4.093,3.257,180.1,0.5,0.143,20.5,screening_ready,in_domain,302.5,5.28,9.61,5,ultra_low,A1,68.5,Tier 2 (Conditional),VP 5.3x cyclopentane (too volatile for drop-in use)
+8,CC(F)(F)C(F)=C(F)F,C4H3F5,146.02,3.689,3.319,184.1,0.437,0.141,18.3,screening_ready,in_domain,292.6,7.68,54.18,5,ultra_low,A1,68.3,Tier 2 (Conditional),VP 7.7x cyclopentane (too volatile for drop-in use)
+9,F/C(=C/C(F)(F)F)CC(F)(F)F,C5H3F7,196.01,4.253,3.407,182.0,0.515,0.251,13.6,screening_ready,in_domain,315.7,3.17,3.55,5,ultra_low,A1,66.7,Tier 2 (Conditional),VP 3.2x cyclopentane (too volatile for drop-in use)
+10,F/C(=C\C(F)(F)F)CC(F)(F)F,C5H3F7,196.01,4.253,3.407,182.0,0.515,0.251,13.6,screening_ready,in_domain,315.7,3.17,3.55,5,ultra_low,A1,66.7,Tier 2 (Conditional),VP 3.2x cyclopentane (too volatile for drop-in use)
