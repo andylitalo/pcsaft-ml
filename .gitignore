@@ -54,7 +54,20 @@ htmlcov/
 model/saved/*.joblib
 model/saved/*.csv
 model/saved/*.png
+model/saved/*.pt
+model/saved/*.npy
+model/saved/chemberta/
+model/saved/chemprop/
+model/saved/xgb/
+model/saved/nn/
+model/saved/gnn/
 screening/results/*.csv
 
 # Downloaded data (regenerate via scripts)
 model/data/esper_pcsaft.csv
+model/data/mlsaft_pcsaft.csv
+model/data/spt_pcsaft.csv
+
+# Package data (weights should be downloaded via _weights.py, not committed)
+pcsaft_predict/data/*.pt
+pcsaft_predict/data/*.joblib

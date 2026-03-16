@@ -9,7 +9,31 @@ on:
   workflow_dispatch:
 
 jobs:
-  lint-and-test:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Sync development dependencies
+        run: uv sync --extra dev
+
+      - name: Lint with ruff
+        run: uv run ruff check .
+
+  test-core:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -30,8 +54,49 @@ jobs:
       - name: Sync development dependencies
         run: uv sync --extra dev
 
-      - name: Lint
-        run: uv run ruff check .
+      - name: Run core tests (exclude slow)
+        run: uv run pytest tests/ -v -m "not slow" --tb=short
 
-      - name: Run tests
-        run: uv run pytest tests/ -v
+  test-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pcsaft-predict package
+        run: pip install -e "./pcsaft_predict[dev]"
+
+      - name: Run package tests
+        run: pytest tests/test_pcsaft_predict.py -v --tb=short
+
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: pip install build
+
+      - name: Build package
+        run: python -m build pcsaft_predict/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: pcsaft_predict/dist/
