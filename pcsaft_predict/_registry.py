@@ -29,6 +29,14 @@ def register_model(name: str):
 # Register the RF model
 MODELS["rf"] = RFModel
 
+# Conditionally register GNN model if torch/torch_geometric are available
+try:
+    from pcsaft_predict._gnn import GNNModel
+    MODELS["gnn"] = GNNModel
+except ImportError:
+    # torch or torch_geometric not installed; GNN not available
+    pass
+
 
 def list_models() -> list[str]:
     """Return list of available model names.
