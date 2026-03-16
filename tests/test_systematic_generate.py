@@ -3,7 +3,6 @@
 from rdkit import Chem
 
 from screening.generate import (
-    ALKENE_BACKBONES,
     _enumerate_halogen_patterns,
     generate_hfo_candidates,
     generate_systematic_candidates,
