@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pcsaft-portal
+  namespace: pcsaft
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pcsaft-portal
+  template:
+    metadata:
+      labels:
+        app: pcsaft-portal
+    spec:
+      containers:
+      - name: portal
+        image: pcsaft-portal:latest
+        ports:
+        - containerPort: 8501
+        env:
+        - name: PCSAFT_API_URL
+          value: "http://pcsaft-api:80"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /_stcore/health
+            port: 8501
+          initialDelaySeconds: 15
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /_stcore/health
+            port: 8501
+          initialDelaySeconds: 10
+          periodSeconds: 10

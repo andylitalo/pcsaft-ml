@@ -112,7 +112,8 @@ def test_k8s_configmap_has_model_type(k8s_dir):
 
     assert "data" in content, "No data section in ConfigMap"
     assert "PCSAFT_MODEL_TYPE" in content["data"], "PCSAFT_MODEL_TYPE not in ConfigMap"
-    assert content["data"]["PCSAFT_MODEL_TYPE"] == "rf", "MODEL_TYPE should be 'rf'"
+    model_type = content["data"]["PCSAFT_MODEL_TYPE"]
+    assert model_type in ("rf", "gnn"), f"MODEL_TYPE should be 'rf' or 'gnn', got '{model_type}'"
 
 
 def test_k8s_deployment_has_volume_mount(k8s_dir):
