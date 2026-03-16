@@ -141,7 +141,7 @@ def render_prediction_page(api_client):
                         if tanimoto >= 0.4 and in_domain:
                             st.success(
                                 f"**AD Status: In-Domain** (Tanimoto={tanimoto:.3f})",
-                                icon="✓",
+                                icon="✅",
                             )
                         elif tanimoto >= 0.3:
                             st.warning(

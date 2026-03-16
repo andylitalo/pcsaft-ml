@@ -208,7 +208,7 @@ def render_screener(api_client):
             filters["max_mw"] = st.number_input(
                 "Max molecular weight",
                 value=filters["max_mw"],
-                step=10,
+                step=10.0,
             )
 
         if "require_in_domain" in filters:

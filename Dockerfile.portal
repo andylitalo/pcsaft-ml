@@ -10,7 +10,7 @@ FROM python:3.11-slim AS runtime
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libxrender1 libxext6 && \
+    libxrender1 libxext6 libexpat1 && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /install /usr/local
@@ -21,6 +21,8 @@ COPY screening/ screening/
 COPY pcsaft_predict/ pcsaft_predict/
 COPY model/ model/
 COPY data/pcsaft_novel_predictions_v1.csv data/
+
+ENV PYTHONPATH=/app
 
 EXPOSE 8501
 

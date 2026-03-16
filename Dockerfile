@@ -7,7 +7,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 
 # Install dependencies with pip
-RUN pip install --no-cache-dir --prefix=/install .
+RUN pip install --no-cache-dir --prefix=/install ".[serve]"
 
 # Stage 2: Runtime image
 FROM python:3.11-slim AS runtime
@@ -26,6 +26,8 @@ COPY --from=builder /install /usr/local
 COPY model/ model/
 COPY serving/ serving/
 COPY screening/ screening/
+COPY pcsaft_predict/ pcsaft_predict/
+COPY data/pcsaft_novel_predictions_v1.csv data/
 
 EXPOSE 8000
 

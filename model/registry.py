@@ -10,7 +10,6 @@ from pathlib import Path
 
 import joblib
 import numpy as np
-import torch
 from sklearn.preprocessing import StandardScaler
 
 from model.data.descriptors import build_features
@@ -184,6 +183,7 @@ class NNModel:
         self._target_scalers: dict[str, dict[str, float]] | None = None
 
     def load(self) -> None:
+        import torch
         from model.nn.architecture import PCSAFTNet
 
         path = SAVED_DIR / "nn_pcsaft.pt"
@@ -220,6 +220,7 @@ class NNModel:
         return values * info["std"] + info["mean"]
 
     def predict(self, smiles_list: list[str]) -> dict[str, np.ndarray]:
+        import torch
         if self._net is None:
             self.load()
         X = _compute_features(smiles_list)
@@ -279,6 +280,7 @@ class GNNModel:
         self._target_scalers: dict[str, dict[str, float]] | None = None
 
     def load(self) -> None:
+        import torch
         from model.gnn.architecture import PCSAFTGraphNet
 
         path = SAVED_DIR / "gnn_pcsaft.pt"
@@ -324,6 +326,7 @@ class GNNModel:
         return batch, valid_indices
 
     def predict(self, smiles_list: list[str]) -> dict[str, np.ndarray]:
+        import torch
         if self._net is None:
             self.load()
 
@@ -395,6 +398,7 @@ class ChemBERTaModel:
         self._target_scalers: dict[str, dict[str, float]] | None = None
 
     def load(self) -> None:
+        import torch
         from transformers import AutoTokenizer
 
         from model.hf.chemberta_model import ChemBERTaForPCSAFT
@@ -426,7 +430,7 @@ class ChemBERTaModel:
             raise FileNotFoundError(f"Target scalers not found: {scaler_path}")
         self._target_scalers = json.loads(scaler_path.read_text())
 
-    def _tokenize(self, smiles_list: list[str]) -> dict[str, torch.Tensor]:
+    def _tokenize(self, smiles_list: list[str]):
         return self._tokenizer(
             smiles_list,
             padding="max_length",
@@ -440,6 +444,7 @@ class ChemBERTaModel:
         return values * info["std"] + info["mean"]
 
     def predict(self, smiles_list: list[str]) -> dict[str, np.ndarray]:
+        import torch
         if self._model is None:
             self.load()
         encodings = self._tokenize(smiles_list)
@@ -487,6 +492,7 @@ class ChemBERTaModel:
         np.ndarray
             CLS embeddings of shape ``(n_molecules, hidden_size)``.
         """
+        import torch
         if self._model is None:
             self.load()
         encodings = self._tokenize(smiles_list)

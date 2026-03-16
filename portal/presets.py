@@ -15,8 +15,8 @@ PRESETS = {
         "filters": {
             "m_range": (1.8, 3.5),
             "sigma_range": (3.0, 4.5),
-            "epsilon_k_range": (200, 400),
-            "max_mw": 200,
+            "epsilon_k_range": (200.0, 400.0),
+            "max_mw": 200.0,
             "require_in_domain": True,
             "min_tanimoto": 0.3,
         },
@@ -42,8 +42,8 @@ PRESETS = {
         "filters": {
             "m_range": (1.5, 3.0),
             "sigma_range": (2.5, 4.0),
-            "epsilon_k_range": (150, 350),
-            "max_mw": 150,
+            "epsilon_k_range": (150.0, 350.0),
+            "max_mw": 150.0,
             "require_in_domain": True,
             "min_tanimoto": 0.25,
         },
@@ -67,8 +67,8 @@ PRESETS = {
         "filters": {
             "m_range": (1.5, 4.0),
             "sigma_range": (3.0, 5.0),
-            "epsilon_k_range": (150, 450),
-            "max_mw": 250,
+            "epsilon_k_range": (150.0, 450.0),
+            "max_mw": 250.0,
             "require_in_domain": True,
             "min_tanimoto": 0.2,
         },
