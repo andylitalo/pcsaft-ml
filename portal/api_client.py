@@ -284,3 +284,207 @@ class PCSAFTClient:
             "n_training": 1445,
             "status": health.get("status", "unknown"),
         }
+
+    def find_similar(
+        self,
+        smiles: str | None = None,
+        m: float | None = None,
+        sigma: float | None = None,
+        epsilon_k: float | None = None,
+        k: int = 10,
+        corpus: str = "all",
+        metric: str = "parameter",
+    ) -> dict:
+        """Find similar molecules by PC-SAFT parameters or structural similarity.
+
+        Parameters
+        ----------
+        smiles : str | None
+            Query SMILES string (for Tanimoto or parameter prediction)
+        m : float | None
+            Query m parameter
+        sigma : float | None
+            Query sigma parameter
+        epsilon_k : float | None
+            Query epsilon_k parameter
+        k : int
+            Number of neighbors to return
+        corpus : str
+            Search corpus: 'reference', 'novel', or 'all'
+        metric : str
+            Distance metric: 'parameter', 'tanimoto', or 'both'
+
+        Returns
+        -------
+        dict
+            Similarity response with keys: query_smiles, query_params, corpus,
+            corpus_version, neighbors, metric.
+            On error, returns: {"error": str, "neighbors": []}.
+        """
+        # Local fallback mode
+        if self._use_local:
+            try:
+                import pandas as pd
+                from rdkit import Chem
+                from rdkit.Chem import AllChem, DataStructs
+
+                import pcsaft_predict
+
+                logger.info("Using local similarity search (no API)")
+
+                # Load search corpora
+                from pathlib import Path
+
+                predictions_csv = Path("data/pcsaft_novel_predictions_v1.csv")
+                novel_db = pd.read_csv(predictions_csv, comment="#")
+                ref_db = pd.DataFrame([
+                    {
+                        "smiles": "C1CCCC1",
+                        "m": 2.3655,
+                        "sigma": 3.7114,
+                        "epsilon_k": 288.84,
+                        "mol_class": "cycloalkane",
+                        "name": "Cyclopentane",
+                    }
+                ])
+
+                # Select corpus
+                if corpus == "reference":
+                    db = ref_db.copy()
+                    corpus_version = "reference_molecules_v1"
+                elif corpus == "novel":
+                    db = novel_db.copy()
+                    corpus_version = "pcsaft_novel_predictions_v1"
+                else:
+                    db = pd.concat([ref_db, novel_db], ignore_index=True)
+                    corpus_version = "reference_molecules_v1+pcsaft_novel_predictions_v1"
+                    corpus_labels = ["reference"] * len(ref_db) + ["novel"] * len(novel_db)
+                    db["corpus"] = corpus_labels
+
+                if "corpus" not in db.columns:
+                    db["corpus"] = corpus
+
+                # Resolve query parameters
+                has_smiles = smiles is not None
+                has_params = all([m is not None, sigma is not None, epsilon_k is not None])
+
+                if has_smiles and not has_params:
+                    pred_df = pcsaft_predict.predict_pcsaft([smiles])
+                    query_params = {
+                        "m": float(pred_df.iloc[0]["m"]),
+                        "sigma": float(pred_df.iloc[0]["sigma"]),
+                        "epsilon_k": float(pred_df.iloc[0]["epsilon_k"]),
+                    }
+                elif has_params:
+                    query_params = {"m": m, "sigma": sigma, "epsilon_k": epsilon_k}
+                else:
+                    return {"error": "Must provide smiles or parameters", "neighbors": []}
+
+                # Compute distances
+                if metric in ("parameter", "both"):
+                    q_m = query_params["m"]
+                    q_s = query_params["sigma"]
+                    q_e = query_params["epsilon_k"]
+                    db["parameter_distance"] = (
+                        ((db["m"] - q_m) / q_m) ** 2
+                        + ((db["sigma"] - q_s) / q_s) ** 2
+                        + ((db["epsilon_k"] - q_e) / q_e) ** 2
+                    ) ** 0.5
+
+                if metric in ("tanimoto", "both") and has_smiles:
+                    query_mol = Chem.MolFromSmiles(smiles)
+                    query_fp = AllChem.GetMorganFingerprintAsBitVect(query_mol, 2, nBits=2048)
+
+                    def tanimoto_sim(smi):
+                        mol = Chem.MolFromSmiles(smi)
+                        if mol is None:
+                            return 0.0
+                        fp = AllChem.GetMorganFingerprintAsBitVect(mol, 2, nBits=2048)
+                        return DataStructs.TanimotoSimilarity(query_fp, fp)
+
+                    db["tanimoto_similarity"] = db["smiles"].apply(tanimoto_sim)
+
+                # Sort
+                if metric == "tanimoto":
+                    results = db.sort_values("tanimoto_similarity", ascending=False)
+                elif metric == "both":
+                    results = db.sort_values(
+                        ["parameter_distance", "tanimoto_similarity"],
+                        ascending=[True, False],
+                    )
+                else:
+                    results = db.sort_values("parameter_distance", ascending=True)
+
+                top_k = results.head(k)
+
+                neighbors = []
+                for _, row in top_k.iterrows():
+                    param_dist = (
+                        float(row["parameter_distance"])
+                        if "parameter_distance" in row
+                        else None
+                    )
+                    tanimoto_sim = (
+                        float(row["tanimoto_similarity"])
+                        if "tanimoto_similarity" in row
+                        else None
+                    )
+                    bp_k = (
+                        float(row["boiling_point_K"])
+                        if pd.notna(row.get("boiling_point_K"))
+                        else None
+                    )
+                    neighbors.append({
+                        "smiles": row["smiles"],
+                        "corpus": row["corpus"],
+                        "m": float(row["m"]),
+                        "sigma": float(row["sigma"]),
+                        "epsilon_k": float(row["epsilon_k"]),
+                        "parameter_distance": param_dist,
+                        "tanimoto_similarity": tanimoto_sim,
+                        "mol_class": row.get("mol_class"),
+                        "boiling_point_K": bp_k,
+                    })
+
+                return {
+                    "query_smiles": smiles,
+                    "query_params": query_params,
+                    "corpus": corpus,
+                    "corpus_version": corpus_version,
+                    "neighbors": neighbors,
+                    "metric": metric,
+                }
+
+            except Exception as e:
+                logger.error("Local similarity search failed: %s", e)
+                return {"error": f"Local search error: {e}", "neighbors": []}
+
+        # API mode
+        try:
+            resp = requests.post(
+                f"{self.base_url}/similar",
+                json={
+                    "smiles": smiles,
+                    "m": m,
+                    "sigma": sigma,
+                    "epsilon_k": epsilon_k,
+                    "k": k,
+                    "corpus": corpus,
+                    "metric": metric,
+                },
+                timeout=30,
+            )
+            resp.raise_for_status()
+            return resp.json()
+        except requests.ConnectionError:
+            logger.error("API connection failed: %s", self.base_url)
+            return {"error": "Cannot connect to API server", "neighbors": []}
+        except requests.HTTPError as e:
+            logger.error("API error: %s", e)
+            return {"error": f"API error: {e.response.status_code}", "neighbors": []}
+        except requests.Timeout:
+            logger.error("API timeout")
+            return {"error": "API request timed out", "neighbors": []}
+        except Exception as e:
+            logger.error("Unexpected error during similarity search: %s", e)
+            return {"error": str(e), "neighbors": []}

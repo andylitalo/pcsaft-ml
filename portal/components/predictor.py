@@ -212,6 +212,83 @@ def render_prediction_page(api_client):
                                 delta_color="inverse",
                             )
 
+                # Similar molecules search
+                with st.expander("Find Similar Molecules"):
+                    st.markdown(
+                        """
+                        Search for molecules with similar PC-SAFT parameters or structure
+                        from the prediction database or reference library.
+                        """
+                    )
+
+                    col_k, col_metric, col_corpus = st.columns(3)
+                    with col_k:
+                        k = st.slider("Number of neighbors", 5, 50, 10, key=f"k_{i}")
+                    with col_metric:
+                        metric = st.selectbox(
+                            "Similarity metric",
+                            ["parameter", "tanimoto", "both"],
+                            key=f"metric_{i}",
+                            help=(
+                                "Parameter: distance in PC-SAFT space; "
+                                "Tanimoto: fingerprint similarity"
+                            ),
+                        )
+                    with col_corpus:
+                        corpus_choice = st.selectbox(
+                            "Search corpus",
+                            ["all", "reference", "novel"],
+                            key=f"corpus_{i}",
+                            help="Reference = curated molecules; Novel = model predictions",
+                        )
+
+                    if st.button("Find Similar", key=f"similar_{i}"):
+                        with st.spinner("Searching..."):
+                            response = api_client.find_similar(
+                                smiles=pred["smiles"],
+                                m=pred.get("m"),
+                                sigma=pred.get("sigma"),
+                                epsilon_k=pred.get("epsilon_k"),
+                                k=k,
+                                metric=metric,
+                                corpus=corpus_choice,
+                            )
+
+                        if "error" in response:
+                            st.error(f"Search failed: {response['error']}")
+                        else:
+                            st.caption(
+                                f"Corpus: {response['corpus']} | "
+                                f"Version: {response['corpus_version']} | "
+                                f"Metric: {response['metric']}"
+                            )
+
+                            if not response["neighbors"]:
+                                st.warning("No similar molecules found")
+                            else:
+                                # Format neighbors as DataFrame
+                                neighbors_data = []
+                                for n in response["neighbors"]:
+                                    row = {
+                                        "SMILES": n["smiles"],
+                                        "Corpus": n["corpus"],
+                                        "m": f"{n['m']:.4f}",
+                                        "σ (Å)": f"{n['sigma']:.4f}",
+                                        "ε/k (K)": f"{n['epsilon_k']:.2f}",
+                                    }
+                                    if n.get("parameter_distance") is not None:
+                                        row["Param Dist"] = f"{n['parameter_distance']:.4f}"
+                                    if n.get("tanimoto_similarity") is not None:
+                                        row["Tanimoto"] = f"{n['tanimoto_similarity']:.3f}"
+                                    if n.get("boiling_point_K") is not None:
+                                        row["T_b (K)"] = f"{n['boiling_point_K']:.1f}"
+                                    if n.get("mol_class"):
+                                        row["Class"] = n["mol_class"]
+                                    neighbors_data.append(row)
+
+                                neighbors_df = pd.DataFrame(neighbors_data)
+                                st.dataframe(neighbors_df, use_container_width=True)
+
         # Offer CSV download of results
         if predictions:
             results_df = pd.DataFrame(

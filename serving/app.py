@@ -5,8 +5,12 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+import numpy as np
+import pandas as pd
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
+from rdkit import Chem
+from rdkit.Chem import AllChem, DataStructs
 
 from serving.config import settings
 from serving.schemas import (
@@ -16,6 +20,9 @@ from serving.schemas import (
     PredictionRequest,
     PredictionResponse,
     ReferenceMolecule,
+    SimilarityRequest,
+    SimilarityResponse,
+    SimilarMolecule,
     UncertaintyEstimate,
 )
 
@@ -135,6 +142,83 @@ REFERENCE_MOLECULES = [
 ]
 
 
+def precompute_fingerprints(smiles_list: list[str]) -> list:
+    """Pre-compute Morgan fingerprints for a list of SMILES.
+
+    Args:
+        smiles_list: List of SMILES strings
+
+    Returns:
+        List of RDKit ExplicitBitVect objects (or None for invalid SMILES)
+    """
+    fps = []
+    for smi in smiles_list:
+        mol = Chem.MolFromSmiles(smi)
+        if mol is None:
+            fps.append(None)
+        else:
+            fps.append(AllChem.GetMorganFingerprintAsBitVect(mol, 2, nBits=2048))
+    return fps
+
+
+def bulk_tanimoto(query_smiles: str, db_fps: list) -> list[float]:
+    """Compute Tanimoto similarity between query and pre-computed DB fingerprints.
+
+    Args:
+        query_smiles: Query SMILES string
+        db_fps: List of pre-computed Morgan fingerprints
+
+    Returns:
+        List of Tanimoto similarities (0.0 for invalid SMILES)
+    """
+    query_mol = Chem.MolFromSmiles(query_smiles)
+    if query_mol is None:
+        return [0.0] * len(db_fps)
+    query_fp = AllChem.GetMorganFingerprintAsBitVect(query_mol, 2, nBits=2048)
+    valid_fps = [fp for fp in db_fps if fp is not None]
+    if not valid_fps:
+        return [0.0] * len(db_fps)
+    bulk_sims = DataStructs.BulkTanimotoSimilarity(query_fp, valid_fps)
+    results = []
+    bulk_idx = 0
+    for fp in db_fps:
+        if fp is None:
+            results.append(0.0)
+        else:
+            results.append(bulk_sims[bulk_idx])
+            bulk_idx += 1
+    return results
+
+
+def parameter_distance(query_params: dict, db_params: pd.DataFrame) -> np.ndarray:
+    """Compute normalized Euclidean distance in (m, sigma, epsilon_k) space.
+
+    Uses relative normalization (divide by reference value) to handle different scales.
+    Weights: m=1.0, sigma=1.0, epsilon_k=1.0 (equal weighting after normalization).
+
+    Args:
+        query_params: Dict with keys m, sigma, epsilon_k
+        db_params: DataFrame with columns m, sigma, epsilon_k
+
+    Returns:
+        Array of distances
+    """
+    q_m = query_params["m"]
+    q_sigma = query_params["sigma"]
+    q_eps = query_params["epsilon_k"]
+
+    db_m = db_params["m"].values
+    db_sigma = db_params["sigma"].values
+    db_eps = db_params["epsilon_k"].values
+
+    # Relative distance (normalized by reference values)
+    dm = ((db_m - q_m) / q_m) ** 2
+    ds = ((db_sigma - q_sigma) / q_sigma) ** 2
+    de = ((db_eps - q_eps) / q_eps) ** 2
+
+    return np.sqrt(dm + ds + de)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Load the model at startup and release at shutdown."""
@@ -144,6 +228,34 @@ async def lifespan(app: FastAPI):
     logger.info("Loading model: %s", settings.model_type)
     _model_server = ModelServer(settings.model_type)
     logger.info("Model loaded successfully")
+
+    # Load search corpora
+    predictions_csv = Path("data/pcsaft_novel_predictions_v1.csv")
+    logger.info("Loading search corpora...")
+
+    # Load novel predictions (skip comment lines)
+    app.state.novel_predictions_db = pd.read_csv(predictions_csv, comment="#")
+    app.state.novel_predictions_version = "pcsaft_novel_predictions_v1"
+
+    # Load reference molecules
+    app.state.reference_db = pd.DataFrame([r.model_dump() for r in REFERENCE_MOLECULES])
+
+    # Pre-compute fingerprints for fast similarity search
+    logger.info("Pre-computing Morgan fingerprints for novel predictions...")
+    app.state.novel_fps = precompute_fingerprints(
+        app.state.novel_predictions_db["smiles"].tolist()
+    )
+
+    logger.info("Pre-computing Morgan fingerprints for reference molecules...")
+    app.state.reference_fps = precompute_fingerprints(
+        app.state.reference_db["smiles"].tolist()
+    )
+
+    logger.info(
+        f"Search corpora loaded: {len(app.state.novel_predictions_db)} novel + "
+        f"{len(app.state.reference_db)} reference molecules"
+    )
+
     yield
     _model_server = None
     logger.info("Model server shut down")
@@ -227,6 +339,129 @@ async def submit_data(submission: DataSubmission):
 
     logger.info("Submission accepted: %s from %s", submission.smiles, submission.source)
     return {"status": "accepted", "smiles": submission.smiles}
+
+
+@app.post("/similar", response_model=SimilarityResponse)
+async def find_similar(request: SimilarityRequest):
+    """Find similar molecules by PC-SAFT parameters or structural similarity.
+
+    At least one of `smiles` or `(m, sigma, epsilon_k)` must be provided.
+    If SMILES is given without parameters, parameters are predicted first.
+    """
+    # Validate input
+    has_smiles = request.smiles is not None
+    has_params = all(
+        [request.m is not None, request.sigma is not None, request.epsilon_k is not None]
+    )
+
+    if not has_smiles and not has_params:
+        raise HTTPException(
+            status_code=400,
+            detail="Must provide either 'smiles' or all three parameters (m, sigma, epsilon_k)",
+        )
+
+    # Select corpus
+    if request.corpus == "reference":
+        db = app.state.reference_db.copy()
+        db_fps = app.state.reference_fps
+        corpus_version = "reference_molecules_v1"
+    elif request.corpus == "novel":
+        db = app.state.novel_predictions_db.copy()
+        db_fps = app.state.novel_fps
+        corpus_version = app.state.novel_predictions_version
+    else:  # "all"
+        db = pd.concat(
+            [app.state.reference_db, app.state.novel_predictions_db],
+            ignore_index=True,
+        )
+        db_fps = app.state.reference_fps + app.state.novel_fps
+        corpus_version = f"reference_molecules_v1+{app.state.novel_predictions_version}"
+
+    # Add corpus label to distinguish reference vs novel in results
+    if request.corpus == "all":
+        corpus_labels = (
+            ["reference"] * len(app.state.reference_db)
+            + ["novel"] * len(app.state.novel_predictions_db)
+        )
+        db["corpus"] = corpus_labels
+    else:
+        db["corpus"] = request.corpus
+
+    # Resolve query parameters
+    if has_smiles and not has_params:
+        # Predict parameters from SMILES
+        pred_result = _model_server.predict([request.smiles])[0]
+        if not pred_result["valid"]:
+            raise HTTPException(status_code=400, detail=f"Invalid SMILES: {request.smiles}")
+        query_params = {
+            "m": pred_result["m"],
+            "sigma": pred_result["sigma"],
+            "epsilon_k": pred_result["epsilon_k"],
+        }
+    elif has_params:
+        query_params = {"m": request.m, "sigma": request.sigma, "epsilon_k": request.epsilon_k}
+    else:
+        # has_smiles but also has_params (both provided)
+        query_params = {"m": request.m, "sigma": request.sigma, "epsilon_k": request.epsilon_k}
+
+    # Compute distances/similarities
+    if request.metric in ("parameter", "both"):
+        db["parameter_distance"] = parameter_distance(query_params, db)
+
+    if request.metric in ("tanimoto", "both"):
+        if not has_smiles:
+            raise HTTPException(
+                status_code=400,
+                detail="Tanimoto similarity requires 'smiles' to be provided",
+            )
+        db["tanimoto_similarity"] = bulk_tanimoto(request.smiles, db_fps)
+
+    # Sort and return top-k
+    if request.metric == "tanimoto":
+        results = db.sort_values("tanimoto_similarity", ascending=False)
+    elif request.metric == "both":
+        # Lexicographic sort: parameter distance first, then tanimoto similarity
+        results = db.sort_values(
+            ["parameter_distance", "tanimoto_similarity"],
+            ascending=[True, False],
+        )
+    else:
+        results = db.sort_values("parameter_distance", ascending=True)
+
+    top_k = results.head(request.k)
+
+    # Convert to response model
+    neighbors = []
+    for _, row in top_k.iterrows():
+        param_dist = (
+            float(row["parameter_distance"]) if "parameter_distance" in row else None
+        )
+        tanimoto_sim = (
+            float(row["tanimoto_similarity"]) if "tanimoto_similarity" in row else None
+        )
+        bp_k = float(row["boiling_point_K"]) if pd.notna(row.get("boiling_point_K")) else None
+        neighbors.append(
+            SimilarMolecule(
+                smiles=row["smiles"],
+                corpus=row["corpus"],
+                m=float(row["m"]),
+                sigma=float(row["sigma"]),
+                epsilon_k=float(row["epsilon_k"]),
+                parameter_distance=param_dist,
+                tanimoto_similarity=tanimoto_sim,
+                mol_class=row["mol_class"] if pd.notna(row.get("mol_class")) else None,
+                boiling_point_K=bp_k,
+            )
+        )
+
+    return SimilarityResponse(
+        query_smiles=request.smiles,
+        query_params=query_params if query_params else None,
+        corpus=request.corpus,
+        corpus_version=corpus_version,
+        neighbors=neighbors,
+        metric=request.metric,
+    )
 
 
 @app.exception_handler(Exception)
