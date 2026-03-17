@@ -8,8 +8,6 @@ A 20-minute presentation for an AI-for-Chemistry startup showcasing a scientific
 
 **Moonshot**: Find a polyurethane blowing agent that is cheap, safe, performant, and compliant — a decades-long R&D target that keeps moving as the regulatory landscape tightens.
 
-**Fast failure (SPOILER)**: The molecules that are thermodynamically similar to cyclopentane all have severe practical disqualifiers (ODP, toxicity, regulatory). You can't maintain cyclopentane's thermodynamic convenience while staying in compliance — so the real question becomes finding the right tradeoff *within* compliance, not preserving past properties. ML answered that in a weekend instead of years of experiments.
-
 This project started from a question I cared about from my PhD: not "can ML find a miracle molecule?", but "can a validated ML + physics workflow close a hard chemical-screening question faster than experiments alone?"
 
 # The Inverse Design Problem
@@ -100,7 +98,7 @@ The cleanest story is a comparison among three model classes:
 2. Random Forest on RDKit + Morgan features: chemistry encoded in the feature space
 3. GNNs: chemistry learned from the molecular graph itself
 
-This is where the "Bitter Lesson" appears in a constrained form: with enough clean data, the GNN should eventually win, and on pooled datasets it does look stronger. But the deployment decision in this project was driven by external validation, not by the prettiest aggregate metric ([model comparison](supplementary_information/model_comparison.md), [Bitter Lesson note](supplementary_information/bitter_lesson_chemistry.md))
+This is where the "Bitter Lesson" appears in a constrained form: with enough clean data, the GNN should eventually win (estimated crossover around 5,000-10,000 molecules, extrapolated from two data points), and on pooled datasets it does look stronger. But the deployment decision in this project was driven by external validation, not by the prettiest aggregate metric ([model comparison](supplementary_information/model_comparison.md), [Bitter Lesson note](supplementary_information/bitter_lesson_chemistry.md))
 
 ### Metrics of Success
 
@@ -113,7 +111,7 @@ A good model will have
 
 ### Evaluation
 
-On the Esper test set (n = 361), RF achieved `R^2 = 0.62 / 0.35 / 0.33` on `m / sigma / epsilon/k`. GNN variants slightly improved `epsilon/k` on the same data, and the unified-dataset GNN reached `R^2(epsilon/k) = 0.73`. But that higher aggregate score did not survive external validation on fluorinated compounds.
+On the Esper test set (n = 361), RF (RDKit descriptors + Morgan fingerprints, ~2,200 features) achieved `R^2 = 0.62 / 0.35 / 0.33` on `m / sigma / epsilon/k`. GNN variants slightly improved `epsilon/k` on the same data, and the unified-dataset GNN reached `R^2(epsilon/k) = 0.73`. But that higher aggregate score did not survive external validation on fluorinated compounds.
 
 That became the key model-selection result:
 - RF trained on 1,801 experimentally fitted molecules gave boiling-point MAE = 8.2 K on 15 external fluorinated refrigerants
@@ -121,18 +119,16 @@ That became the key model-selection result:
 - So RF, not GNN, was chosen for screening because it was far more accurate on the chemistry that mattered ([fluorinated validation](supplementary_information/fluorinated_validation.md))
 - Uncertainty told the same story: the GNN's MC Dropout intervals were 7.6x miscalibrated on the fluorinated validation set (0-6.7% of errors within 1-sigma vs expected 68%). The model was not just wrong -- it was confidently wrong.
 
-| Model | m R^2 | sigma R^2 | epsilon/k R^2 | Fluorinated BP MAE (K) |
-|-------|-------|-----------|---------------|----------------------|
-| GC-PC-SAFT | 0.40 | -1.16 | -0.04 | -- |
-| RF (Esper) | 0.62 | 0.35 | 0.33 | **8.2** |
-| NN | 0.47 | 0.11 | 0.14 | -- |
-| ChemBERTa | 0.53 | 0.25 | 0.27 | -- |
-| XGBoost | 0.64 | 0.36 | 0.33 | -- |
-| Chemprop D-MPNN | 0.54 | 0.33 | 0.39 | -- |
-| GINEConv (Esper) | -- | -- | 0.41 | 142.3 |
-| GNN (unified) | -- | -- | 0.73 | 133.7 |
+| Model | Training data | epsilon/k R^2 | Fluorinated BP MAE (K) |
+|-------|---------------|---------------|----------------------|
+| GC-PC-SAFT (no ML) | hand-crafted rules | -0.04 | -- |
+| RF (RDKit + Morgan) | 1,801 experimental | 0.33 | **8.2** |
+| GNN (Esper-only) | 1,801 experimental | 0.41 | 142.3 |
+| GNN (unified) | 13,764 pooled | 0.73 | 133.7 |
 
-([Full model comparison with discussion](supplementary_information/model_comparison.md)) See also: [R^2 comparison](figures/15_improved_models/r2_heatmap.png) and [external fluorinated validation](figures/38_gnn_fluorinated_validation/boiling_point_parity.png)
+The table focuses on epsilon/k because it is the parameter that dominates the screening question (see "Why Parameter Differences Matter" below). GNN outperforms RF on aggregate test-set R^2, but both GNN variants fail catastrophically on the external fluorinated validation (16x worse than RF).
+
+([Full 8-model comparison](supplementary_information/model_comparison.md)) See also: [R^2 heatmap](figures/15_improved_models/r2_heatmap.png) and [external fluorinated validation](figures/38_gnn_fluorinated_validation/boiling_point_parity.png)
 
 ### The Broader ML Lesson
 
@@ -173,9 +169,9 @@ Chlorinated alkenes preserve more cyclopentane-like dispersion energy than heavi
 The important physics is not just that `epsilon/k` shifts. It is that the shift gets amplified in mixture thermodynamics:
 
 - `epsilon_ij / k = sqrt((epsilon_i/k)(epsilon_j/k))`
-- Henry's constant depends exponentially on the interaction energy
+- Henry's constant depends exponentially on the interaction energy (simplified; actual values below computed through the full PC-SAFT EOS via teqp)
 
-Quantitatively, this creates a cliff, not a slope:
+Quantitatively, this creates a cliff, not a slope (values from Step 22/43 EOS calculations):
 
 | epsilon_ij deficit | H/H(cyclopentane) | Physical meaning |
 |--------------------|-------------------|------------------------------------------|
@@ -185,6 +181,10 @@ Quantitatively, this creates a cliff, not a slope:
 | 22% (HFO-1234ze) | 29,000,000 | Seven orders of magnitude different |
 
 There is no gentle gradient -- there is a cliff, and the cliff falls exactly where the practical constraints force you. Every HFO sits at 16-22% deficit. This is the strongest scientific payoff of predicting PC-SAFT parameters instead of only predicting boiling point directly: a direct property predictor would miss this exponential sensitivity entirely. ([why parameters, not properties](supplementary_information/approach_validity.md), [Henry sensitivity figure](figures/22_ml_chemistry_narrative/henrys_sensitivity.png))
+
+### The answer
+
+The molecules that are thermodynamically similar to cyclopentane all have severe practical disqualifiers (ODP, toxicity, regulatory). You can't maintain cyclopentane's thermodynamic convenience while staying in compliance — so the real question is finding the right tradeoff *within* compliance, not preserving past properties. ML-driven screening closed that question in a weekend of compute instead of years of bench experiments — though validating the ML models themselves required weeks of careful iteration.
 
 ### Limitations: What molecules is this not appropriate for?
 
@@ -203,31 +203,28 @@ The best thermodynamic near-hits are the three chlorinated butenes, but they are
 - **Regulatory**: chlorinated VOCs face restrictions under REACH, EPA TSCA, and national chemical inventories
 - **Availability**: not commercially manufactured at scale
 
+## The Chlorobutenes as Positive Control
+
+The chlorobutenes are not a practical discovery — they fail on ODP, toxicity, and regulation. But they serve as a **positive control for the pipeline**: the workflow surfaced thermodynamically plausible near-hits that are in-domain, locally benchmarked, and self-consistent across multiple independently derived quantities. They were then eliminated for the right (non-ML) reasons. This is what a well-functioning screening pipeline should do.
+
+The single most impactful next validation step would be looking up published PC-SAFT parameters for closely related molecules (1-chlorobutane, allyl chloride) — a check that could confirm or refute the pipeline's most credible prediction in an afternoon.
+
 ## Valid Approach with Reasonable Accuracy
 
 Evidence of the approach's validity ([full report](supplementary_information/approach_validity.md)):
 1. **Multi-level validation**: parameter-level, property-level, and screening-level checks all point in the same direction
-2. **Correct model-selection lesson**: the hierarchy is clear and quantified -- data quality > data quantity > model architecture. The experimentally anchored RF was 16x more accurate than the higher-R^2 pooled-data GNN on the deployment domain
-3. **Physical consistency matters**: predicting PC-SAFT parameters, rather than a single property, enabled the mixture-thermodynamics analysis that made the story scientifically useful
+2. **Data quality > data quantity > model architecture**: the experimentally anchored RF was 16x more accurate than the higher-R^2 pooled-data GNN on the deployment domain
+3. **Physical consistency matters**: predicting PC-SAFT parameters, rather than a single property, enabled the mixture-thermodynamics analysis that quantitatively closed the question
 4. **The negative result is scoped but meaningful**: within the enumerated halogenated-olefin space, no pure HFO behaved like a drop-in cyclopentane replacement
-5. **The positive control is also informative**: the workflow surfaced plausible thermodynamic near-hits, then rejected them for chemistry and regulation rather than because the model failed
 
 ## Future Work
 
 - Repeat the workflow around today's commercial blowing agents rather than cyclopentane, using a larger experimentally anchored fluorinated dataset
-- Extend the thermodynamic model for more strongly polar chemistry; for this problem, missing dipolar physics is more important than missing H-bond terms
 - Generalize the workflow to other non-associating screening problems where the reference molecule, property windows, and applicability domain are clear ([Streamlit app note](supplementary_information/streamlit_app.md))
 
-With more data, the same pipeline could also target association parameters and binary interaction parameters, but those are genuine future extensions rather than solved pieces of the current work.
+## Takeaways
 
-## Big Picture: ML Accelerates Search for Candidates in New Spaces with Sufficient Experimental Data
-
-- If the dataset is tiny, use coarse physical models
-- If the dataset is large and clean, learned representations should dominate
-- In the middle regime, feature engineering plus strong inductive bias can beat a more flexible architecture
-- Physics is the bridge that turns ML predictions into meaningful chemical conclusions
-
-### Bitter Lesson: How much data are needed to learn the physics itself?
-
-With enough clean and representative data, learned representations should eventually win here too.
-([Where this has already happened in chemistry](supplementary_information/bitter_lesson_chemistry.md))
+1. **External validation is non-negotiable.** R^2 = 0.73 on the aggregate test set; boiling-point MAE = 133.7 K on the deployment domain. Only external validation against independently published experimental data distinguished the two.
+2. **Predict parameters of physics-based models, not properties directly.** The exponential Boltzmann sensitivity — the cliff, not a slope — is the core physics insight. A direct property predictor would have missed it entirely.
+3. **In the low-data regime, feature engineering beats learned representations.** With ~1,800 molecules, hand-crafted chemical descriptors outperform GNNs because the RF doesn't need to learn what electronegativity means from examples. With enough clean data (estimated >5,000-10,000 molecules), learned representations should eventually win — [this has already happened elsewhere in chemistry](supplementary_information/bitter_lesson_chemistry.md).
+4. **ML enables exhaustive screening that closes open questions.** The most valuable outcome was a negative result: no fluorinated olefin can be a thermodynamic drop-in for cyclopentane. Without ML, "maybe the right molecule hasn't been tested yet" would remain a defensible position.

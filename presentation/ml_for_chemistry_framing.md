@@ -83,7 +83,7 @@ On the same experimental data, both GNN (GINEConv) and chemprop (D-MPNN) consist
 
 ### The Data–Architecture Interaction
 
-The key finding: **data quantity dominated architecture choice.** On the same ~1,900 molecules, architectural differences between RF, XGBoost, chemprop, and GNN produced ±0.08 R² differences. With 7× more training data, the GNN leapt by +0.40 R² on ε/k. The crossover point — where GNN starts to consistently outperform RF — is roughly 5,000–10,000 molecules. Below that, invest in features (domain expertise). Above that, invest in learned representations.
+The key finding: **data quantity dominated architecture choice.** On the same ~1,900 molecules, architectural differences between RF, XGBoost, chemprop, and GNN produced ±0.08 R² differences. With 7× more training data, the GNN leapt by +0.40 R² on ε/k. The estimated crossover point — where GNN starts to consistently outperform RF — is roughly 5,000–10,000 molecules (extrapolated from two data points, not a systematic scaling study). Below that, invest in features (domain expertise). Above that, invest in learned representations.
 
 But the 7× larger dataset carried systematic bias that poisoned the model for the actual deployment domain (see Act 3).
 
@@ -117,7 +117,7 @@ The model that appeared excellent by aggregate metrics was **16× worse on the d
 
 **Retraining the GNN on Esper-only data** (Step 38c) still failed — boiling point MAE = 142 K. This isolated the cause: it is not only SPT contamination but also an architectural limitation. With only ~210 fluorinated molecules in the 1,801-molecule Esper corpus, the GNN's 195K parameters cannot learn meaningful representations for this chemical class. RF succeeds because its hand-crafted RDKit descriptors encode electronegativity, polarizability, and other chemical knowledge that the GNN must learn from data it doesn't have.
 
-**Inter-dataset variability analysis** (745 molecules shared between Esper and ML-SAFT) quantified the noise floor: median parameter disagreement of 1–3%, but heavy tails up to P95 = 48%. This is the first published quantification of inter-method variability in PC-SAFT parameter fitting and has implications for the entire thermodynamic modeling community.
+**Inter-dataset variability analysis** (745 molecules shared between Esper and ML-SAFT) quantified the noise floor: median parameter disagreement of 1–3%, but heavy tails up to P95 = 48%.
 
 ### The Lesson
 
