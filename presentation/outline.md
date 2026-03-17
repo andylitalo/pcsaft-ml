@@ -1,91 +1,55 @@
 ---
-This is an outline of a 20-minute presentation I will give to an AI for Chemistry startup to showcase a project in which I've applied ML to chemistry. It outlines the sections of the talk and includes bullet points explaining the decisions made and supporting them with results. To assist with answering deeper questions during the discussion afterwards, these results will hyperlink to markdown files describing the evidence that supports these results as well as figures in the supplementary_information/ directory. That way, a question about the justification or explanation of a result can be easily answered by clicking the hyperlinks.
-
-- Q? indicates a question that is un-answered and should be either answered in-line or lead to an in-line change to the text (for example, if there is a Q? asking "is this point necessary?" and you find that it is not, remove that point)
-- E! indicates a need for a deeper explanation in a linked document
+A 20-minute presentation for an AI-for-Chemistry startup showcasing a scientifically careful ML-for-chemistry story. The talk should emphasize what was validated, clearly mark what remains hypothesis-level, and keep supplementary links aligned with the strongest supporting evidence for Q&A.
 ---
 
 # Title: Machine Learning Estimates Thermodynamic Properties of Molecules to Accelerate Search for Suitable Alternatives for a Polyurethane Blowing Agent
 
 ## Preamble
 
-I've never applied ML to chemistry, but I have background in both and was excited to take this opportunity to do so to tackle an idea from my PhD.
+**Moonshot**: Find a polyurethane blowing agent that is cheap, safe, performant, and compliant — a decades-long R&D target that keeps moving as the regulatory landscape tightens.
 
-# Introduction of the Problem
+**Fast failure (SPOILER)**: The molecules that are thermodynamically similar to cyclopentane all have severe practical disqualifiers (ODP, toxicity, regulatory). You can't maintain cyclopentane's thermodynamic convenience while staying in compliance — so the real question becomes finding the right tradeoff *within* compliance, not preserving past properties. ML answered that in a weekend instead of years of experiments.
 
-## Why do we care about alternative PU blowing agents?
+This project started from a question I cared about from my PhD: not "can ML find a miracle molecule?", but "can a validated ML + physics workflow close a hard chemical-screening question faster than experiments alone?"
 
-### Polyurethane Insulating Foams are our best commodity insulation
+# The Inverse Design Problem
 
-- PU closed-cell, rigid insulating foams are the top commodity insulation (lowest thermal conductivity), exceeded only by aerogels that have yet to meet its price point
-- PU is responsible for insulating our fridges, coolers, buildings, and even the space shuttle fuel tanks!
+**"Given a set of desired thermophysical properties, which molecules in chemical space satisfy them?"** Each approach to answering this -- experiment, simulation, ML -- trades accuracy for throughput. This project asks whether ML is accurate enough to close a specific screening question credibly.
 
-### Blowing agents are responsible for PU's low thermal conductivity
+## Context: PU foams and blowing agents
 
-- Primary heat transfer is through gas conduction (Q? or convection?) and radiation
-- Gas conduction (Q? or convection?) is inversely proportional (Q?) to MW of blowing agent
-- Radiative heat transfer is inversely proportional to cell number density, which relies on enhanced nucleation by the blowing agent
+- Rigid closed-cell PU foams are the workhorse commodity insulation (buildings, refrigerators, aerospace). The blowing agent directly controls thermal performance: gas-phase MW drives conductive heat transfer; nucleation behavior drives radiative heat transfer via cell structure.
+- Cyclopentane (T_b = 322 K) is one of the best blowing agents thermodynamically -- good volatility, good matrix compatibility, low cost, zero ODP. But it is highly flammable (ASHRAE A3), a VOC, and has GWP ~5.
+- Industry moved to HFOs/HCFOs for safety and regulatory compliance, but these are not drop-in replacements -- they require completely reformulated foam systems. Was reformulation inevitable, or did industry simply not search the right molecules?
 
-In this talk, we will focus on radiative heat transfer because:
-- it is a significant contribution
-- it is least well understood how to reduce it (i.e., how to increase cell number density)
-- Dow thought it was important enough to fund my PhD on it...
-
-### Absent CFCs and HCFCs, cyclopentane is one of the best blowing agents
-
-- Reasonably high MW (Q? how much?)
-- appropriate boiling point (Q? what is the appropriate range) to vaporize during the exo-therm in PU foaming and remain vapor in the final product (to prevent condensation and foam collapse)
-- Significantly enhances bubble nucleation (demonstrated by my PhD work) and yields higher cell number density (Dow, Minogue)
-- Also cheap, chemically stable (Q?), no ODP (reason for phasing out CFCs and HCFCs used before the Montreal Protocol), anything else (Q?)
-
-HCFCs and CFCs had all these properties except for the ODP of 0 (and secondarily, a low GWP) which is why they were banned in the Montreal Protocol.
-
-### Cyclopentane has practical problems
-
-- Highly flammable
-- Not a low GWP
-- Q? any others?
-
-### Industry has moved to alternatives to meet regulation at great cost
-
-HFOs and HCFOs are
-- far less flammable
-- have lower GWP
-- no ODP
-- higher MW
-
-But they are
-- less soluble in polyol (requiring siloxane Q? surfactants to emulsify)
-- less stable (amines attack something Q? requiring something Q?)
-- more expensive (Q? how much?)
-
-The industry invested a lot to comply with regulations. Did they need to?
-
-### SPOILER: HFOs and HCFOs
-
-We'll find in the end that reducing flammability is only possible by adding fluorines, which dramatically changes the thermodynamic properties from cyclopentane and requires significant reformulation to compensate.
+This talk focuses on the thermodynamic side of that question: which molecules have the right volatility and matrix interaction, and can ML answer that screening question credibly enough to save experimental effort?
 
 
 ## How can we explore other alternatives to cyclopentane?
 
-To answer this question, we frame it as a scientific question with the following
+To make that answerable, I turned it into an ML-assisted thermodynamic screening problem.
 
 ### Assumptions
 
-- Blowing agent performance ~ ability to generate high cell number density in PU foams
-- cell number density ~ nucleation rate
-- nucleation rate ~ favorable thermodynamic properties (based on my PhD work)
-- thermodynamic properties ~ PC-SAFT parameters (specifically m, sigma, and epsilon) E! what is PC-SAFT, why use it, and what do these parameters mean, and why are we ignoring the others (k + association parameters) Q? can we ignore association parameters in fluorinated and chlorinated compounds?
+- We are not predicting foam performance directly
+- We are using thermodynamic similarity to cyclopentane as a scientifically grounded proxy for drop-in behavior
+- The core thermodynamic representation is the 3-parameter, non-associating PC-SAFT model: `m`, `sigma`, and `epsilon/k`
+- This is appropriate for non-associating and moderately polar molecules, but not for strongly associating chemistry; that scope limit matters throughout the talk ([primer](supplementary_information/pcsaft_primer.md))
 
-yielding our
+That gives the actual scientific goals.
 
 ### Scientific Questions (Goals)
 
-*Which molecules have similar m, sigma, and epsilon to cyclopentane?* (proxy for blowing agent ability)
+Primary question:
 
-Secondarily, *which molecules have a suitable boiling point?* (vaporize during exo-therm of PU and remain vapor in final foam)
+*Within the screened candidate space, which molecules have PC-SAFT parameters close to cyclopentane's?*
 
-Thirdly, *which molecules have similar solubility in polyol?* Q? can we answer this with Henry's constant in n-hexane given that polyol has -OH groups? Q? or is Henry's constant useful as a validation of the PC-SAFT parameters' utility for predicting thermodynamic properties in mixtures?
+Secondary questions:
+
+- *Do they also have a suitable boiling point?*
+- *Do they also have similar dissolution thermodynamics?*
+
+We approximate dissolution similarity using Henry's constant in `n`-hexane at 298 K. `n`-Hexane is not a real polyol, so this is a ranking proxy rather than a literal process model, but it lets us test whether parameter similarity translates into similar mixture behavior.
 
 # Proposed Solution: ML prediction of PC-SAFT parameters to filter against cyclopentane's
 
@@ -93,118 +57,177 @@ Thirdly, *which molecules have similar solubility in polyol?* Q? can we answer t
 
 In order of increasing throughput and levels of abstraction:
 
-1. Experimental measurement of thermodynamic properties and fitting of parameters (e.g., VLE, Q? what else) (~days/molecule)
-2. Quantum simulations (COSMO-RS Q? what else Q?) (~hours/molecule)
+1. Experimental measurement of thermodynamic properties and fitting of parameters (e.g., VLE data, vapor pressure curves, liquid density, speed of sound) (~days/molecule)
+2. Quantum simulations (COSMO-RS, molecular dynamics, ab initio DFT) (~hours/molecule)
 3. Phenomenological/empirical models (coarse-grained models, ML) (~seconds/molecule)
 
-To screen thousands of chemicals in one weekend, I need to use #3.
+To screen thousands of candidates in a weekend, I need option 3. The question becomes whether the model is accurate enough, honest enough about uncertainty, and validated on the chemistry I care about.
 
 ## Baseline: What models are available?
 
 ### SPT-PCSAFT has issues
 
-SPT-PCSAFT is a published ML model for predicting PC-SAFT parameters of > 13k molecules (Q? what is the citation)
+SPT-PCSAFT (Winter et al., *Digital Discovery* 2025, 4, 1142-1157; DOI: 10.1039/D4DD00077C) published a dataset of 13,646 ML-predicted PC-SAFT parameters trained on a SMILES transformer.
 
-- Model weights are not available (Q? is this true or are model weights available?)
-- Validation failed in our study (Q? is this true or did we find that the systematic error we initially saw was an artifact of our method?)
+- Model weights are not published; only the predicted parameter dataset is available (CC-BY-NC-SA 4.0)
+- More importantly, it is not reliable as ground truth for this project's deployment domain: fluorinated compounds show a large source-dependent shift relative to experimentally fitted parameters ([details](supplementary_information/spt_pcsaft_issues.md))
 
 ## Train Our Own Model
 
 ### On what dataset?
 
-- Unfortunately, most datasets of PC-SAFT parameters are proprietary (e.g., Q? what are some examples?)
-- SPT-PCSAFT is a large dataset, but only of predicted parameters, so training on it will compound on their errors (E! we tested training on this model and found some issues--explain them)
-- Open-source datasets: Esper (~1800 molecules Q? what is exact number) and ML-SAFT (Q? how many?). Combined and deduplicated -> ~ 2k molecules (Q? exact number?)
+- Unfortunately, most datasets of PC-SAFT parameters are proprietary (e.g., Dortmund Data Bank / DDB, DIPPR)
+- SPT-PCSAFT is large, but it is itself ML-predicted; training on it risks learning its bias rather than experimental chemistry
+- The clean experimental anchor is Esper: 1,801 molecules with experimentally fitted parameters. The project ultimately favored this small clean dataset over the 7x larger pooled alternative, accepting lower aggregate R^2 in exchange for accuracy on the deployment domain.
+- ML-SAFT (870 molecules) adds supporting context, but the deployment decision is driven by performance on experimentally anchored data
 
 ### With what features?
 
-Literature suggests features from
-- RDKit (E! what is it why and what literature suggested it and why)
-- Morgan Fingerprint (E! what is it why and what literature suggested it and why)
-- 3D Conformer (E! what is it why and what literature suggested it and why)
+I tested three representation styles:
+- RDKit 2D descriptors: ~200 topological and electronic descriptors (MW, TPSA, ring counts, electronegativity proxies), cleaned to ~170 after removing zero-variance and highly correlated features ([details](supplementary_information/feature_engineering.md))
+- Morgan Fingerprints: 2048-bit circular fingerprints at radius 2 (ECFP4-equivalent), encoding substructure presence/absence ([details](supplementary_information/feature_engineering.md))
+- 3D Conformer features: encode spatial arrangement of atoms ([details](supplementary_information/feature_engineering.md))
 
-(Q? is that true? What else? Why?). We excluded 3D Conformer features because they are more complex to calculate (Q? is that why?). They are more of an optimization.
+We excluded 3D conformer features because conformer generation is computationally expensive and adds pipeline complexity; they are an optimization for later work.
 
-SMILES was also considered, but poor because (Q? E! what was the issue with SMILES-based representations like ChemBERTa? Is this connected to the issues with SPT-PCSAFT)
+SMILES-based representations (e.g., fine-tuned ChemBERTa) were also tested, but on this dataset they were worse than feature-engineered models: lower accuracy on `epsilon/k`, slower inference, and less interpretable applicability-domain checks ([details](supplementary_information/smiles_chemberta_issues.md))
 
 ### With what architecture?
 
-In order of increasing need for data and learnability of features:
+The cleanest story is a comparison among three model classes:
 
-1. Group-contribution method: estimates PC-SAFT parameters based on human-derived rules based on functional groups in the molecule (Q? citation?)
-2. Random Forest: (E! why did we choose this and what are the biases it introduces to help prevent over-fitting in the case of smaller datasets)
-3. GNN: (chemprop E! what is it and GINEConv E! what is it) recommended by literature (Q? what literature and why useful for this based on message-passing and ability to learn features E!)
+1. Group-contribution: no ML, pure hand-crafted additivity. When there is no relevant training data at all, this is the best available option -- but the additive assumption limits it severely on `epsilon/k` (R^2 = -0.04).
+2. Random Forest on RDKit + Morgan features: chemistry encoded in the feature space
+3. GNNs: chemistry learned from the molecular graph itself
 
-SPOILER: The Bitter Lesson suggests that GNNs should work best with a large enough dataset (E! where GNN shines in large dataset), but we ended up finding that RF was the best performer.
+This is where the "Bitter Lesson" appears in a constrained form: with enough clean data, the GNN should eventually win, and on pooled datasets it does look stronger. But the deployment decision in this project was driven by external validation, not by the prettiest aggregate metric ([model comparison](supplementary_information/model_comparison.md), [Bitter Lesson note](supplementary_information/bitter_lesson_chemistry.md))
 
 ### Metrics of Success
 
 A good model will have
-- Low MAE (Q? what is MAE formula and why do we use it?)
-- R^2 above the noise threshold (Q? why is R^2 appropriate?)
-Q? anything else?
+- Low MAE: interpretable in physical units (K for epsilon/k, Angstroms for sigma)
+- R^2: fraction of variance explained; the baseline noise floor comes from inter-dataset variability (~1-3% median, heavy tails to 30%+)
+- We also tracked MARE (scale-invariant) and CCC (penalizes systematic bias)
 
-### Training
-
-- Objective/loss: Q?
-- Optimizer: I think AdamW but with what params and why? Q?
-- Learning rate: Q?
-- Stopping condition: Q?
+([Metric definitions and rationale](supplementary_information/metrics_rationale.md))
 
 ### Evaluation
 
-Q? what were the results that led to our decision to choose RF?
-E! make a document of the primary results for ALL models showing why we choose RF and where other models might be valid
+On the Esper test set (n = 361), RF achieved `R^2 = 0.62 / 0.35 / 0.33` on `m / sigma / epsilon/k`. GNN variants slightly improved `epsilon/k` on the same data, and the unified-dataset GNN reached `R^2(epsilon/k) = 0.73`. But that higher aggregate score did not survive external validation on fluorinated compounds.
+
+That became the key model-selection result:
+- RF trained on 1,801 experimentally fitted molecules gave boiling-point MAE = 8.2 K on 15 external fluorinated refrigerants
+- The GNN trained on 13,764 pooled molecules gave boiling-point MAE = 133.7 K on the same set
+- So RF, not GNN, was chosen for screening because it was far more accurate on the chemistry that mattered ([fluorinated validation](supplementary_information/fluorinated_validation.md))
+- Uncertainty told the same story: the GNN's MC Dropout intervals were 7.6x miscalibrated on the fluorinated validation set (0-6.7% of errors within 1-sigma vs expected 68%). The model was not just wrong -- it was confidently wrong.
+
+| Model | m R^2 | sigma R^2 | epsilon/k R^2 | Fluorinated BP MAE (K) |
+|-------|-------|-----------|---------------|----------------------|
+| GC-PC-SAFT | 0.40 | -1.16 | -0.04 | -- |
+| RF (Esper) | 0.62 | 0.35 | 0.33 | **8.2** |
+| NN | 0.47 | 0.11 | 0.14 | -- |
+| ChemBERTa | 0.53 | 0.25 | 0.27 | -- |
+| XGBoost | 0.64 | 0.36 | 0.33 | -- |
+| Chemprop D-MPNN | 0.54 | 0.33 | 0.39 | -- |
+| GINEConv (Esper) | -- | -- | 0.41 | 142.3 |
+| GNN (unified) | -- | -- | 0.73 | 133.7 |
+
+([Full model comparison with discussion](supplementary_information/model_comparison.md)) See also: [R^2 comparison](figures/15_improved_models/r2_heatmap.png) and [external fluorinated validation](figures/38_gnn_fluorinated_validation/boiling_point_parity.png)
+
+### The Broader ML Lesson
+
+- In-distribution test metrics can be badly misleading
+- Larger training sets are not automatically better if they are label-biased
+- Raw uncertainty estimates (tree variance, MC Dropout) can be badly miscalibrated in both directions; local calibration against structurally similar known molecules gave the most useful intervals
+- The hierarchy is clear: **data quality > data quantity > model architecture**, and deployment-domain validation matters more than benchmark R^2
 
 ## Filter candidate molecules
 
-Filters:
-- PC-SAFT parameters predicted by selected ML model (m, sigma, epsilon) Q? what were the specific ranges we permitted (E! and why?)
-- Boiling point (E! how is this calculated) (Q? what were the specific ranges we permitted?) (E! and why?)
-- Henry's Constant (Q? are we using this for filtering?) (Q? what were the specific ranges we permitted?) (E! and why?)
+Filters applied in cascade ([methodology details](supplementary_information/screening_methodology.md)):
+- Enumerate 10,700 F/Cl-substituted C2-C6 olefins
+- Use the 1,471 pure-HFO subset for the regulation-compliant search
+- Rank by weighted PC-SAFT parameter proximity to cyclopentane
+- Filter by boiling point, vapor-pressure similarity, Henry's-constant similarity, EOS convergence, and practical chemistry constraints
 
-Q? what were the results?
-Q? what were the candidates with uncertainties? (Q? was it chlorinated olefins or were there others?)
+**Results, carefully stated**:
+
+- In the pure-HFO subset, no molecule met the full drop-in thermodynamic criteria
+- In the broader F/Cl-substituted olefin space, three chlorinated butenes emerged as the best thermodynamic near-hits
+- Those chlorinated butenes are model-based near-hits, not experimentally confirmed winners
+- For industry context: HFO-1336mzz(Z), the commercial HFO blowing agent, ranks 4,318 out of 4,663 by parameter similarity to cyclopentane (H/H_ref = 35). It works not by matching cyclopentane but because foam systems were completely redesigned around it.
+
+| Candidate | epsilon/k (K) [local 95% CI] | VP ratio (298 K) | H/H_cyclopentane [local cal.] |
+|-----------|------------------------------|-------------------|-------------------------------|
+| 1-chlorobut-1-ene | 267.8 [259, 276] | 1.15 | 1.05 [~0.8, ~1.5] |
+| (Z)-2-chloro-2-butene | 267.1 [259, 276] | 1.10 | 1.02 [~0.8, ~1.5] |
+| (E)-2-chloro-2-butene | 267.1 [259, 276] | 1.10 | 1.02 [~0.8, ~1.5] |
+
+All three are chlorinated butenes. Zero of 1,471 pure HFOs passed the strict drop-in screen. The CIs above are locally calibrated: RF predictions compared against 5 structurally analogous chlorinated alkenes in the Esper training set give epsilon/k RMSE = 4.3 K, vs raw tree-variance std of 27 K (~6x overconservative). Propagating the locally calibrated error through the EOS gives physically meaningful H ratio intervals, whereas raw tree-variance propagation produces intervals spanning orders of magnitude. ([chlorobutene deep-dive](figures/43_chlorobutene_deep_dive/neighbor_benchmark.png), [Henry's ratio CIs](figures/43_chlorobutene_deep_dive/henry_ratio_ci.png))
 
 ### Scientific Rationale
 
-Q? What was the scientific explanation for these candidates passing the filters?
+Chlorinated alkenes preserve more cyclopentane-like dispersion energy than heavily fluorinated olefins do, while still landing in a usable boiling-point regime. In the screened olefin space, increasing fluorination systematically pulls `epsilon/k` downward and drives candidates away from cyclopentane-like mixture behavior. Broader experimental context from the Esper dataset is consistent with the same trend, but should be presented as supporting evidence rather than universal proof. See [experimental cross-class context](figures/46_universal_anticorrelation/epsk_vs_fluorination.png) and [screened-candidate trend](figures/22_ml_chemistry_narrative/epsilon_k_vs_fluorines.png).
+
+### Why Parameter Differences Matter So Much
+
+The important physics is not just that `epsilon/k` shifts. It is that the shift gets amplified in mixture thermodynamics:
+
+- `epsilon_ij / k = sqrt((epsilon_i/k)(epsilon_j/k))`
+- Henry's constant depends exponentially on the interaction energy
+
+Quantitatively, this creates a cliff, not a slope:
+
+| epsilon_ij deficit | H/H(cyclopentane) | Physical meaning |
+|--------------------|-------------------|------------------------------------------|
+| 4% (chlorobutene) | 1.05 | Near-identical dissolution behavior |
+| 7% | ~1.3 | Detectable but compensable in formulation |
+| 16% (HCFO-1233zd) | 61 | Two orders of magnitude different |
+| 22% (HFO-1234ze) | 29,000,000 | Seven orders of magnitude different |
+
+There is no gentle gradient -- there is a cliff, and the cliff falls exactly where the practical constraints force you. Every HFO sits at 16-22% deficit. This is the strongest scientific payoff of predicting PC-SAFT parameters instead of only predicting boiling point directly: a direct property predictor would miss this exponential sensitivity entirely. ([why parameters, not properties](supplementary_information/approach_validity.md), [Henry sensitivity figure](figures/22_ml_chemistry_narrative/henrys_sensitivity.png))
 
 ### Limitations: What molecules is this not appropriate for?
 
-- Fluorinated compounds were too far OOD (Q? what was our measurement of this?) so they failed on the 15-molecule validation against the literature values (E! explain this)
-- Polar molecules (Q? Because we didn't account for association parameters, right? Or do we still have evidence of being able to make predictions for polar molecules reasonably well? What's the cutoff and what's the measurement of polarity?)
+- Fluorinated molecules remain the highest-risk predictions. Even when RF outperformed GNN badly on the external fluorinated validation set, those predictions are still screening-quality, not engineering-quality, and should be treated as prioritization hypotheses rather than design data. Uncertainty estimates for OOD fluorinated predictions should not be trusted at face value -- MC Dropout was 7.6x overconfident; tree variance was ~6x conservative for in-domain chemistry. ([details](supplementary_information/fluorinated_validation.md))
+- Strongly polar or associating molecules are out of scope for the 3-parameter model; molecules with OH, NH, or COOH groups should not be over-interpreted
+- The chlorobutene near-hits are more credible than the fluorinated candidates because they are locally benchmarked and moderately in-domain, but they still lack direct experimental PC-SAFT validation
 
-# Conclusion: No feasible candidates, but a useful approach
+# Conclusion: No drop-in fluorinated candidate found, but a useful and validated workflow
 
 ## Feasible Candidates
 
-Those found are not feasible due to practical limitations:
-- Q? what were they? list them here
+The best thermodynamic near-hits are the three chlorinated butenes, but they are eliminated by non-thermodynamic constraints:
+- **Ozone depletion potential (ODP)**: chlorinated olefins release Cl radicals upon atmospheric degradation -- the problem the Montreal Protocol was designed to solve
+- **Toxicity**: short-chain chlorinated alkenes raise major toxicological and regulatory concerns
+- **Reactivity**: vinyl halides are poor fits for the foam process environment
+- **Regulatory**: chlorinated VOCs face restrictions under REACH, EPA TSCA, and national chemical inventories
+- **Availability**: not commercially manufactured at scale
 
 ## Valid Approach with Reasonable Accuracy
 
-Q? what was the evidence of the validity of our approach (parameters -> PC-SAFT instead of directly predicting thermodynamic properties like boiling point; comparison to SPT-PCSAFT; other metrics (E! include a full report supporting the value of this approach and its unique contributions))
+Evidence of the approach's validity ([full report](supplementary_information/approach_validity.md)):
+1. **Multi-level validation**: parameter-level, property-level, and screening-level checks all point in the same direction
+2. **Correct model-selection lesson**: the hierarchy is clear and quantified -- data quality > data quantity > model architecture. The experimentally anchored RF was 16x more accurate than the higher-R^2 pooled-data GNN on the deployment domain
+3. **Physical consistency matters**: predicting PC-SAFT parameters, rather than a single property, enabled the mixture-thermodynamics analysis that made the story scientifically useful
+4. **The negative result is scoped but meaningful**: within the enumerated halogenated-olefin space, no pure HFO behaved like a drop-in cyclopentane replacement
+5. **The positive control is also informative**: the workflow surfaced plausible thermodynamic near-hits, then rejected them for chemistry and regulation rather than because the model failed
 
 ## Future Work
 
-- Apply to finding thermodynamically similar alternatives to the leading blowing agents of today (HFOs): need larger dataset of measurements for fluorinated compounds (it was OOD for Esper and failed validation) and a dataset for estimating association parameters since fluorinated compounds are highly polar and can have H-bonds (Q? is that right?)
-- Apply to finding thermodynamically similar alternatives of almost any organic molecule! This is demonstrated in the streamlit app (E!)
-- Eventually the app should, given a molecule:
-- check for OOD and uncertainty in prediction (reject if too high)
-- predict parameters (could also put them through an EOS solver to generate thermodynamic property estimates and plots)
-- filter molecules in the dataset by proximity of parameters (just rank by proximity)
+- Repeat the workflow around today's commercial blowing agents rather than cyclopentane, using a larger experimentally anchored fluorinated dataset
+- Extend the thermodynamic model for more strongly polar chemistry; for this problem, missing dipolar physics is more important than missing H-bond terms
+- Generalize the workflow to other non-associating screening problems where the reference molecule, property windows, and applicability domain are clear ([Streamlit app note](supplementary_information/streamlit_app.md))
 
-Also with more data for association parameters and k we could predict those too (Q? are these even helpful for this question? Are they needed for polar molecules?)
+With more data, the same pipeline could also target association parameters and binary interaction parameters, but those are genuine future extensions rather than solved pieces of the current work.
 
 ## Big Picture: ML Accelerates Search for Candidates in New Spaces with Sufficient Experimental Data
 
-If the datasets are too small, use theoretical coarse-grained models for high-throughput estimates (e.g., group-contribution method for PC-SAFT).
-If the datasets are large, learn features (e.g., GNN, transformer).
-Many datasets sit in the middle: somewhat representative, but not terribly rich or massive. In this case, ML needs features from science (RDKit and Morgan Fingerprints) and biases (Q? what's the correct term?) like those in RF.
-Lastly, physical theories can provide a bridge between parameters that ML can predict and physical observables that can be measured.
+- If the dataset is tiny, use coarse physical models
+- If the dataset is large and clean, learned representations should dominate
+- In the middle regime, feature engineering plus strong inductive bias can beat a more flexible architecture
+- Physics is the bridge that turns ML predictions into meaningful chemical conclusions
 
 ### Bitter Lesson: How much data are needed to learn the physics itself?
 
-With enough data, we should be able to make predictions as accurately as physical models (i.e., within experimental uncertainty).
-E! do some research on where this has been successful in chemistry (which properties have massive datasets that have been trained and predicted from SMILES, for example?)
+With enough clean and representative data, learned representations should eventually win here too.
+([Where this has already happened in chemistry](supplementary_information/bitter_lesson_chemistry.md))
