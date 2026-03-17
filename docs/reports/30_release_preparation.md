@@ -89,8 +89,8 @@ Step 30 prepared the pcsaft-predict repository for public release. The primary d
 | Data Source | Molecules | License | Redistribution Status |
 |-------------|-----------|---------|----------------------|
 | Esper et al. (Figshare 6821654) | 1,801 | CC-BY-4.0 | ✅ VERIFIED |
-| Felton et al. ML-SAFT (GitHub) | 10,500+ | MIT | ✅ VERIFIED |
-| Winter et al. SPT-PCSAFT (arXiv 2309.12404) | ~1,500 | CC-BY-NC-SA 4.0 | ✅ VERIFIED |
+| Felton et al. ML-SAFT (GitHub) | ~870 | MIT | ✅ VERIFIED |
+| Winter et al. SPT-PCSAFT (arXiv 2309.12404) | ~13,643 | CC-BY-NC-SA 4.0 | ✅ VERIFIED |
 
 **Model Weight Redistribution**:
 - **Random Forest** (`rf_*.joblib`): ✅ Safe (trained on Esper CC-BY-4.0 data only)

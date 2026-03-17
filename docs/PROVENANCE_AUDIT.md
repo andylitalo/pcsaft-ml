@@ -60,7 +60,7 @@ https://acs.figshare.com/collections/6821654/1
 
 ### 1.2 ML-SAFT Regressed Parameters
 
-**What was used**: Regressed PC-SAFT parameters for 10,500+ molecules from ML-SAFT framework.
+**What was used**: Regressed PC-SAFT parameters for ~870 molecules from ML-SAFT framework.
 
 **Source**:
 - Title: "ML-SAFT: A Machine Learning Framework for PCP-SAFT Parameter Estimation"
@@ -89,7 +89,7 @@ https://github.com/kfelton/ml_saft
 **Verification**: ✅ Completed 2026-03-15. Repository LICENSE file confirmed as MIT.
 
 **Used In**:
-- GNN model training (10,500 molecules)
+- GNN model training (~870 molecules)
 - Ensemble model training
 - Applicability domain reference set
 
@@ -97,7 +97,7 @@ https://github.com/kfelton/ml_saft
 
 ### 1.3 SPT-PCSAFT Database (Winter et al.)
 
-**What was used**: PC-SAFT parameters for ~1,500 molecules from the SPT-PCSAFT framework, used for GNN training set expansion.
+**What was used**: PC-SAFT parameters for ~13,643 molecules from the SPT-PCSAFT framework, used for GNN training set expansion.
 
 **Source**:
 - Title: "SPT-NRTL and SPT-PCSAFT: Machine Learning Models for Temperature-Dependent Activity Coefficients and Equations of State"
@@ -136,7 +136,7 @@ arXiv:2309.12404.
 - Novel predictions dataset (uses ensemble): **CC-BY-NC-SA 4.0**
 
 **Used In**:
-- GNN model training (~1,500 molecules, part of ~13,764 total)
+- GNN model training (~13,643 molecules, the bulk of the ~13,764 unified corpus)
 - Fluorinated compound coverage expansion
 
 ---
@@ -172,8 +172,8 @@ arXiv:2309.12404.
 
 **Training Data Provenance**:
 - 1,801 molecules from Esper et al. (CC-BY-4.0) ✅
-- 10,500 molecules from ML-SAFT (MIT) ✅
-- ~1,500 molecules from SPT-PCSAFT (CC-BY-NC-SA 4.0) ✅
+- ~870 molecules from ML-SAFT (MIT) ✅
+- ~13,643 molecules from SPT-PCSAFT (CC-BY-NC-SA 4.0) ✅
 
 **Redistribution Decision**:
 - ✅ **PERMITTED** under **CC-BY-NC-SA 4.0** (most restrictive upstream license governs)

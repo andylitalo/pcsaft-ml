@@ -32,13 +32,13 @@ See detailed analysis in `docs/PROVENANCE_AUDIT.md`.
    - Used in: RF model, GNN model, ensemble model
 
 2. **ML-SAFT (Felton et al. GitHub)**: License ⚠️ UNVERIFIED
-   - 10,500+ molecules with regressed PC-SAFT parameters
+   - ~870 molecules with regressed PC-SAFT parameters
    - Assumed MIT license (verify repository terms)
    - Used in: GNN model, ensemble model
    - **Action**: Verify repository license and data redistribution terms
 
-3. **SPT-PCSAFT (Thol et al. / Dortmund Data Bank)**: License ⚠️ UNVERIFIED
-   - ~1,500 fluorinated compounds
+3. **SPT-PCSAFT (Winter et al. / arXiv 2309.12404)**: License ⚠️ UNVERIFIED
+   - ~13,643 molecules (ML-predicted PC-SAFT parameters)
    - Source unclear (proprietary database vs. open literature)
    - Used in: GNN model
    - **Action**: Verify data source and redistribution permissions

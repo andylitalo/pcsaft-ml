@@ -62,7 +62,7 @@ Additional columns:
 
 The default model is a Random Forest ensemble trained on:
 
-- **Training set**: 1,445 molecules from Esper/ML-SAFT/fluorinated datasets
+- **Training set**: 1,445 molecules from Esper dataset (Esper et al. 2023, experimentally fitted)
 - **Features**: 2048-bit Morgan fingerprints (radius=2) + 170 RDKit 2D descriptors
 - **Performance** (R² on test set):
   - m (segments): 0.61

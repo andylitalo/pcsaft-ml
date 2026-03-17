@@ -57,8 +57,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Data
 - Training set: 13,764 unique molecules with experimental PC-SAFT parameters
   - Esper et al. (2017): 1,801 molecules from Figshare Collection 6821654
-  - Felton et al. (2024) ML-SAFT: 10,500+ molecules from GitHub repository
-  - Thol et al. SPT-PCSAFT: Additional fluorinated compounds
+  - Felton et al. (2024) ML-SAFT: ~870 molecules from GitHub repository
+  - Winter et al. (2025) SPT-PCSAFT: ~13,643 molecules from arXiv 2309.12404
 - Test set: 1,376 molecules (held-out, disjoint from training)
 - Novel predictions library: 4,612 molecules (model-generated, version 1.0)
 
