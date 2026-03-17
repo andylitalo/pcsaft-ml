@@ -55,15 +55,15 @@ Two GNN architectures were tested: GINEConv (Xu et al. 2019; Hu et al. 2020) for
 ### On Esper Test Set (n=361, 80/20 split of 1,801 molecules)
 
 
-| Model            | m R^2 | sigma R^2 | epsilon/k R^2 | m MAE | sigma MAE | epsilon/k MAE (K) |
-| ---------------- | ----- | --------- | ------------- | ----- | --------- | ----------------- |
-| GC-PC-SAFT       | 0.40  | -1.16     | -0.04         | --    | --        | --                |
-| RF               | 0.62  | 0.35      | 0.33          | 0.59  | 0.19      | 26.8              |
-| NN (PyTorch)     | 0.47  | 0.11      | 0.14          | --    | --        | --                |
-| ChemBERTa        | 0.53  | 0.25      | 0.27          | 0.77  | 0.23      | 31.2              |
-| XGBoost          | 0.64  | 0.36      | 0.33          | --    | --        | --                |
-| Chemprop D-MPNN  | 0.54  | 0.33      | 0.39          | 0.69  | 0.21      | 26.8              |
-| GINEConv (Esper) | --    | --        | 0.41          | --    | --        | --                |
+| Model                | m R^2 | sigma R^2 | epsilon/k R^2 | m MAE | sigma MAE | epsilon/k MAE (K) |
+| -------------------- | ----- | --------- | ------------- | ----- | --------- | ----------------- |
+| GC-PC-SAFT           | 0.40  | -1.16     | -0.04         | 1.00  | 0.49      | 44.6              |
+| RF                   | 0.62  | 0.35      | 0.33          | 0.59  | 0.19      | 26.8              |
+| NN (PyTorch)         | 0.47  | 0.11      | 0.14          | 0.77  | 0.24      | 32.9              |
+| ChemBERTa            | 0.53  | 0.25      | 0.27          | 0.77  | 0.23      | 31.2              |
+| XGBoost              | 0.64  | 0.36      | 0.33          | 0.61  | 0.20      | 27.0              |
+| Chemprop D-MPNN      | 0.54  | 0.33      | 0.39          | 0.69  | 0.21      | 26.8              |
+| GINEConv (Combined)  | 0.69  | 0.34      | 0.41          | 0.76  | 0.23      | 28.2              |
 
 
 ### External Fluorinated Validation (15 refrigerants with published PC-SAFT params)
@@ -72,7 +72,7 @@ Two GNN architectures were tested: GINEConv (Xu et al. 2019; Hu et al. 2020) for
 | Model                     | epsilon/k MAE (K) | Boiling Point MAE (K) | epsilon/k R^2 |
 | ------------------------- | ----------------- | --------------------- | ------------- |
 | RF (Esper, 1,801 mol)     | 14.3              | 8.2                   | -0.47         |
-| GINEConv (Esper)          | --                | 142.3                 | --            |
+| GINEConv (Esper)          | 72.4              | 142.3                 | -20.1         |
 | GNN (unified, 13,764 mol) | 77.6              | 133.7                 | -25.08        |
 
 
@@ -82,8 +82,8 @@ Two GNN architectures were tested: GINEConv (Xu et al. 2019; Hu et al. 2020) for
 | Model                   | m R^2 | sigma R^2 | epsilon/k R^2 |
 | ----------------------- | ----- | --------- | ------------- |
 | GNN (unified)           | 0.79  | 0.77      | 0.73          |
-| GNN (Esper subset only) | --    | --        | 0.36          |
-| GNN (SPT subset only)   | --    | --        | 0.90          |
+| GNN (Esper subset only) | 0.59  | 0.03      | 0.36          |
+| GNN (SPT subset only)   | 0.90  | 0.90      | 0.90          |
 
 
 ---
