@@ -26,6 +26,17 @@ Morgan fingerprints are circular: each atom's local environment is hashed iterat
 
 Production concatenates RDKit descriptors and Morgan fingerprints (~2,200 dims). RDKit supplies interpretable global properties; Morgan supplies local substructure coverage. Together they give strong inductive bias: the RF maps features to parameters without rediscovering chemistry.
 
+### Ablation (Step 01)
+
+| Method | R² (m) | R² (σ) | R² (ε/k) | MAE (m) | MAE (σ) | MAE (ε/k, K) |
+|--------|--------|--------|----------|---------|---------|--------------|
+| GC-PC-SAFT (no ML) | 0.40 | -1.16 | -0.04 | 1.001 | 0.494 | 44.6 |
+| RF (RDKit only) | 0.61 | 0.34 | 0.31 | 0.634 | 0.192 | 26.1 |
+| RF (Morgan only) | 0.43 | 0.17 | 0.17 | 0.736 | 0.227 | 30.9 |
+| RF (Combined) | **0.62** | **0.35** | **0.33** | **0.585** | **0.189** | 26.8 |
+
+Morgan-only RF performs substantially worse than RDKit-only (R² = 0.17 vs 0.31 on ε/k) because trees split most efficiently on continuous descriptors like `MolWt` and `LogP`, not on 2,048 sparse binary bits. RDKit-only is strong but misses substructure-level detail that Morgan encodes. The combined set wins on all three parameters — modestly in R² (+0.01–0.02) but notably in MAE for m (0.634 → 0.585). The XGBoost tie on the same combined features (R² = 0.33 vs 0.33 on ε/k) confirmed the bottleneck is the feature representation, not the tree algorithm.
+
 ---
 
 ## GC-PC-SAFT as Optional Features (Considered, Not Default)
@@ -45,6 +56,20 @@ An ablation (Report 18) showed negligible benefit for m and σ (ΔR² ≈ +0.004
 - **ε/k**: Partially conformer-dependent (dipole/quadrupole orientation); 2D descriptors capture the dominant electronic contributions.
 
 Excluded for cost (conformer generation via ETKDG), pipeline complexity, and data scale (~1,800 molecules) where 2D suffices. 3D refinement is a future option.
+
+---
+
+## ChemBERTa CLS Embeddings as RF Features (Not Tested)
+
+A natural idea: extract the 768-dimensional CLS embedding from fine-tuned ChemBERTa and feed it to RF, combining pretrained chemical knowledge with RF's low-data robustness. This was not tested. Three reasons suggest it would not outperform RDKit + Morgan:
+
+1. **RF is axis-aligned; CLS embeddings are distributed.** Each RF split partitions data along a single feature. RDKit descriptors work well because `MolWt` or `LogP` alone is informative. CLS embeddings encode chemical information in correlated combinations of dimensions — "dispersion energy" lives in a linear combination of dozens of axes, not in any single one. RF would need many deep splits to reconstruct what one matrix multiply captures in the regression head.
+
+2. **Ceiling from the regression head.** ChemBERTa's own two-layer MLP — the best possible consumer of those embeddings — reached R² = 0.27 on ε/k. That is the upper bound on what the CLS representation contains for this task. Giving the same embeddings to a worse consumer (axis-aligned RF) cannot exceed that ceiling.
+
+3. **Signal dilution under concatenation.** Appending 768 correlated embedding dims to 2,200 existing features that RF already splits on efficiently would likely be drowned out. The GC-PC-SAFT ablation (Report 18) showed the same pattern: adding 3 weakly informative features to a feature-saturated RF produced ΔR² ≈ 0 or slightly negative.
+
+This remains a plausible but low-priority ablation. A variant worth testing in future work would be to PCA the CLS embeddings down to ~50 uncorrelated dimensions and concatenate with RDKit + Morgan, reducing the axis-alignment penalty while retaining whatever unique signal the embeddings carry.
 
 ---
 
