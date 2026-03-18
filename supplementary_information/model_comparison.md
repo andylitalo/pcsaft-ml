@@ -1,6 +1,6 @@
 # Model Comparison: Full Results and Production Rationale
 
-This document provides the complete model comparison results across all evaluation sets and explains the rationale for selecting Random Forest (RF) for production deployment.
+This document provides the current model comparison results across the evaluated datasets and the rationale used so far for selecting Random Forest (RF) for production deployment. Some sections below are explicitly provisional until the Step 47-50 validation work is complete.
 
 ---
 
@@ -28,9 +28,9 @@ XGBoost (Chen & Guestrin, 2016, *KDD*) represents the other dominant tree ensemb
 
 On many tabular benchmarks (Kaggle competitions, OpenML suites), XGBoost edges out RF because boosting's sequential residual fitting extracts more signal from complex feature interactions. XGBoost is the standard "second tree ensemble to try" after RF.
 
-On this dataset, however, the two tied: R^2 = 0.33 vs 0.33 on epsilon/k, 0.64 vs 0.62 on m, 0.36 vs 0.35 on sigma. **That tie is informative.** When both bagging and boosting converge to the same accuracy on identical features, the bottleneck is the feature representation, not the tree optimization strategy. Boosting's advantage — capturing residual patterns that bagging averages out — requires residual structure *in the features* to exploit. When the features are already saturated (the signal they encode has been fully extracted), switching from bagging to boosting adds no new information.
+On this dataset, however, the two tied: R^2 = 0.33 vs 0.33 on epsilon/k, 0.64 vs 0.62 on m, 0.36 vs 0.35 on sigma. **That tie is informative, but not definitive.** It is consistent with the hypothesis that the current fixed-feature representation is becoming the limiting factor, but it does not by itself prove a representation bottleneck. Other explanations remain possible, including limited sample size, split noise, or remaining hyperparameter headroom. Steps 47 and 50 are intended to test that hypothesis more directly by adding an SVR benchmark and a production-aligned RF sensitivity analysis.
 
-XGBoost would become the preferred tree ensemble if richer features (e.g., 3D conformer descriptors) or substantially more training data introduced interaction effects that boosting could exploit. For this project, the RF = XGBoost tie was one of the signals that motivated testing learned representations (GNNs) rather than further tuning tree hyperparameters.
+XGBoost would become the preferred tree ensemble if richer features (e.g., 3D conformer descriptors) or substantially more training data introduced interaction effects that boosting could exploit. For this project, the RF = XGBoost tie was one of the signals that motivated testing learned representations (GNNs) and adding more disciplined follow-up checks, not a final causal conclusion on its own.
 
 ### GNNs as learned-representation challenger
 
@@ -45,8 +45,10 @@ Two GNN architectures were tested: GINEConv (Xu et al. 2019; Hu et al. 2020) for
 
 - **Linear models** (ridge, LASSO): structure–property relationships for PC-SAFT parameters are non-linear (e.g., ring formation, branching, and halogenation have non-additive effects on dispersion energy). Linear models cannot capture these interactions without extensive manual feature crossing.
 - **Plain MLP**: A PyTorch multi-layer perceptron was tested on the same RDKit + Morgan features. It achieved R^2 = 0.14 on epsilon/k — substantially worse than RF (0.33) — likely due to overfitting in the low-data regime without the variance-reduction benefits of bagging.
-- **SVMs**: Not tested, but would operate on the same feature representation as RF/XGBoost and face the same representation bottleneck. SVMs are also less natural for multi-output regression and provide no built-in uncertainty estimate.
+- **SVMs**: Historically not tested in the original comparison pass. Step 47 adds SVR specifically to check whether a third algorithm family behaves similarly on the same RDKit + Morgan representation. Until that benchmark is complete, SVMs should be described as an open benchmark question rather than categorically excluded.
 - **ChemBERTa** (SMILES transformer): Tested but underperformed feature-engineered models (R^2 = 0.27 on epsilon/k, 185x slower inference). With ~1,800 fine-tuning examples, the pretrained language model could not match hand-crafted chemical features ([details](smiles_chemberta_issues.md)).
+- **ChemBERTa-2** (`DeepChem/ChemBERTa-77M-MTR`): Evaluated for inclusion in Step 48 and declined. It was listed as a candidate in the Step 04 guide and uses multi-task pre-training on molecular properties, which could yield marginal improvement over ChemBERTa-1. However, the fundamental bottleneck is unchanged: ~1,800 fine-tuning examples is insufficient for any SMILES transformer to surpass RDKit + Morgan fingerprints at this data scale. Adding it would require hours of fine-tuning compute for a model that is not a deployment candidate. The existing ChemBERTa-1 result already represents the SMILES-transformer angle in the comparison.
+- **GNNePCSAFT** (PyPI: `gnnepcsaft`): A published, pre-trained GNN model built specifically to predict ePC-SAFT parameters, integrated with the FeOs thermodynamic library. It was not used during the original model-building steps because the project goal was to build and evaluate models from scratch — calling a pre-trained third-party inference API demonstrates no ML engineering skills for a portfolio. However, it is a legitimate external benchmark for the deployment task. **Step 48 adds GNNePCSAFT as a 5th external reference model** on the fluorinated validation set to answer: *"How does our approach compare to the published state-of-the-art model built for exactly this problem?"* Note that GNNePCSAFT predicts ePC-SAFT parameters (which include an association term); for non-associating HFOs, the non-associating parameters are comparable to PC-SAFT values but not identical.
 
 ---
 
@@ -55,25 +57,36 @@ Two GNN architectures were tested: GINEConv (Xu et al. 2019; Hu et al. 2020) for
 ### On Esper Test Set (n=361, 80/20 split of 1,801 molecules)
 
 
-| Model                | m R^2 | sigma R^2 | epsilon/k R^2 | m MAE | sigma MAE | epsilon/k MAE (K) |
-| -------------------- | ----- | --------- | ------------- | ----- | --------- | ----------------- |
-| GC-PC-SAFT           | 0.40  | -1.16     | -0.04         | 1.00  | 0.49      | 44.6              |
-| RF                   | 0.62  | 0.35      | 0.33          | 0.59  | 0.19      | 26.8              |
-| NN (PyTorch)         | 0.47  | 0.11      | 0.14          | 0.77  | 0.24      | 32.9              |
-| ChemBERTa            | 0.53  | 0.25      | 0.27          | 0.77  | 0.23      | 31.2              |
-| XGBoost              | 0.64  | 0.36      | 0.33          | 0.61  | 0.20      | 27.0              |
-| Chemprop D-MPNN      | 0.54  | 0.33      | 0.39          | 0.69  | 0.21      | 26.8              |
-| GINEConv (Combined)  | 0.69  | 0.34      | 0.41          | 0.76  | 0.23      | 28.2              |
+| Model                               | m R^2 | sigma R^2 | epsilon/k R^2 | m MAE | sigma MAE | epsilon/k MAE (K) |
+| ----------------------------------- | ----- | --------- | ------------- | ----- | --------- | ----------------- |
+| GC-PC-SAFT                          | 0.40  | -1.16     | -0.04         | 1.00  | 0.49      | 44.6              |
+| RF                                  | 0.62  | 0.35      | 0.33          | 0.59  | 0.19      | 26.8              |
+| NN (PyTorch)                        | 0.47  | 0.11      | 0.14          | 0.77  | 0.24      | 32.9              |
+| ChemBERTa                           | 0.53  | 0.25      | 0.27          | 0.77  | 0.23      | 31.2              |
+| XGBoost                             | 0.64  | 0.36      | 0.33          | 0.61  | 0.20      | 27.0              |
+| Chemprop D-MPNN                     | 0.54  | 0.33      | 0.39          | 0.69  | 0.21      | 26.8              |
+| GINEConv (Combined)                 | 0.69  | 0.34      | 0.41          | 0.76  | 0.23      | 28.2              |
+| GNNePCSAFT (external, pre-trained) †| —     | —         | —             | —     | —         | —                 |
+
+† GNNePCSAFT was not trained on the Esper corpus. Its Esper holdout performance is an out-of-distribution generalization test, not a standard test-set result. Values to be filled in Step 48.
 
 
 ### External Fluorinated Validation (15 refrigerants with published PC-SAFT params)
 
+**Gap (pre-Step 48):** Only RF and GNN variants were evaluated on this set. XGBoost and chemprop — which tied RF on the Esper holdout — were never tested here. Step 48 closes this gap and also adds GNNePCSAFT as an external pre-trained benchmark.
 
-| Model                     | epsilon/k MAE (K) | Boiling Point MAE (K) | epsilon/k R^2 |
-| ------------------------- | ----------------- | --------------------- | ------------- |
-| RF (Esper, 1,801 mol)     | 14.3              | 8.2                   | -0.47         |
-| GINEConv (Esper)          | 72.4              | 142.3                 | -20.1         |
-| GNN (unified, 13,764 mol) | 77.6              | 133.7                 | -25.08        |
+| Model                                  | epsilon/k MAE (K) | Boiling Point MAE (K) | epsilon/k R^2 |
+| -------------------------------------- | ----------------- | --------------------- | ------------- |
+| RF (Esper, 1,801 mol)                  | 14.3              | 8.2                   | -0.47         |
+| XGBoost                                | —                 | —                     | —             |
+| Chemprop D-MPNN                        | —                 | —                     | —             |
+| GINEConv (Esper)                       | 72.4              | 142.3                 | -20.1         |
+| GNN (unified, 13,764 mol)              | 77.6              | 133.7                 | -25.08        |
+| GNNePCSAFT (external, pre-trained) †  | —                 | —                     | —             |
+
+† GNNePCSAFT predicts ePC-SAFT parameters, not standard PC-SAFT. For non-associating HFOs the non-associating parameters are comparable but not identical. Labeled "external benchmark" — not trained on project data.
+
+> **TODO (Step 48):** Fill XGBoost, chemprop, and GNNePCSAFT rows after running `scripts/step48_model_selection_validation.py`.
 
 
 ### On Unified Dataset (Esper + ML-SAFT + SPT-PCSAFT)
@@ -88,7 +101,25 @@ Two GNN architectures were tested: GINEConv (Xu et al. 2019; Hu et al. 2020) for
 
 ---
 
-## Why RF Was Chosen for Production
+## Validation Hierarchy
+
+Model selection uses a three-tier validation hierarchy, ordered by relevance to the deployment task (screening fluorinated HFO blowing agents):
+
+1. **Tier 1 — Fluorinated external validation (15 refrigerants)**: The decisive metric. Tests the full pipeline (SMILES → PC-SAFT → boiling point via EOS). Boiling point MAE is primary because the screening filter window is ~35 K wide. A model with >50 K BP MAE is not useful for screening.
+2. **Tier 2 — Esper holdout (361 molecules, 80/20 stratified split)**: General parameter prediction accuracy with bootstrap 95% CIs. Without CIs, the epsilon/k MAE values for RF (26.8 K), XGBoost (27.0 K), and chemprop (26.8 K) are too close to distinguish.
+3. **Tier 3 — Cross-validated Q^2 (5-fold)**: Robustness check against split sensitivity. Confirms single-split results are not artifacts.
+
+Tier 1 takes precedence. If Tier 1 is tied, Tier 2 paired uncertainty analysis breaks the tie. If still tied, practical considerations (inference speed, uncertainty calibration, deployment simplicity) decide.
+
+> **Scope note:** The validation evidence summarized here is based on the project's current random split and shuffled CV protocols. That supports internal reproducibility and disciplined model selection, but it should not be presented as proof of scaffold-level chemistry generalization without an additional chemistry-aware split.
+
+> **Note:** Prior to Step 48, only Tier 2 was applied consistently across all models. Tier 1 compared RF vs GNN only. Step 48 applies all three tiers to RF, XGBoost, chemprop, and GNN.
+
+---
+
+## Why RF Was Chosen for Production (Provisional, Pre-Step 48)
+
+> **Caveat:** This rationale was established in Step 38d based on an RF-vs-GNN comparison only. XGBoost and chemprop were not evaluated on the fluorinated validation set. Step 48 will either confirm or revise this decision by testing all competitive models on all three validation tiers. Do not present the list below as the final production verdict until those missing Tier 1 comparisons are filled in.
 
 1. **Best on the deployment domain**: RF boiling point MAE = 8.2 K on 15 fluorinated refrigerants; GNN was 16.4x worse at 133.7 K. The entire screening filter window is only 35 K wide.
 2. **Data quality > quantity > architecture**: On the same ~1,900 Esper molecules, architectural differences between RF, XGBoost, chemprop, and GNN produced ±0.08 R^2 differences. With 7x more training data, GNN gained +0.40 R^2 on epsilon/k -- but the larger dataset carried systematic bias.
@@ -101,7 +132,7 @@ Two GNN architectures were tested: GINEConv (Xu et al. 2019; Hu et al. 2020) for
 ## Where Other Models Might Be Valid
 
 - **GNN (GINEConv, chemprop)**: Both consistently outperformed RF on epsilon/k (+0.06-0.08 R^2) on the same data. With a larger, clean experimental dataset (>5,000-10,000 molecules), GNNs should surpass RF. The crossover is data-limited, not architecture-limited.
-- **XGBoost**: Matched RF exactly (0.33 vs 0.33 on epsilon/k); gradient boosting added no signal over bagging on these features. Could be preferred if feature interaction effects become important with richer data.
+- **XGBoost**: Matched RF exactly (0.33 vs 0.33 on epsilon/k) on the current holdout, which is consistent with but does not prove that boosting adds little over bagging on these features. Could be preferred if feature interaction effects become important with richer data.
 - **ChemBERTa**: Lower accuracy but requires no feature engineering. With pre-training on larger chemical corpora and more fine-tuning data, SMILES-based models could become competitive.
 - **GC-PC-SAFT**: Zero data needed. Useful as a baseline or for novel functional groups with no training data at all.
 

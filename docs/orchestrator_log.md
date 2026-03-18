@@ -425,3 +425,65 @@ correctly identifies this, validating the methodology even though the screening 
 **ALL PHASES COMPLETE.** Phase 1 (01–09), Phase 2 (10–23), Phase 3 (24–42) all finished.
 
 ---
+
+## 2026-03-17: Steps 43–46 — Presentation Readiness Analysis (Completed)
+
+Four retrospective analysis steps run to address narrative and scientific rigor gaps identified
+during presentation preparation. All reports committed to main; state.yaml updated.
+
+**Step 43 (Chlorobutene Deep-Dive)**: Retrospective audit of the three chlorobutene isomers
+(the only candidates passing all 5 thermodynamic criteria). Multi-tier evidence hierarchy:
+experimental boiling points (CRC), local Esper benchmark (5 nearest chlorinated-alkene
+neighbors), Tanimoto AD (0.62–0.67), RF vs SPT disagreement. RF bias: mean -1.6 K on ε/k
+(slight under-prediction). Conclusion: **likely genuine thermodynamic near-hit**, though not
+a practical drop-in. Locally calibrated EOS propagation gives H/H_ref ∈ [0.8, 1.5].
+
+**Step 44 (RF Combined Retrain)**: Reran RF on Esper-only (1440) vs combined Esper+ML-SAFT
+(1255 after dedup). Combined RF marginally worse on general Esper holdout (ε/k R² 0.312 vs
+0.326) but better on fluorinated external validation (ε/k MAE 12.0 vs 14.1 K). Decision:
+use RF_esper for general benchmark claims, RF_combined for fluorinated screening discussion.
+
+**Step 45 (RF Fluorinated Comparison)**: Apples-to-apples comparison of RF_esper vs
+RF_combined on the 15-compound fluorinated validation set with bootstrap CIs and coverage
+analysis. Combined RF preferred for the fluorinated deployment domain; difference is consistent
+across bootstrap resamples. Updated supplementary_information/model_comparison.md with
+fluorinated validation table.
+
+**Step 46 (Universal Fluorination Anticorrelation)**: Cross-class analysis of 1,734
+carbon-containing Esper molecules. Mean ε/k drops from 274 K (unfluorinated) to 176 K
+(A1-level fluorination). High-ε/k + high-fluorination region is empirically empty (0 of 1,734
+molecules pass ε/k ≥ 269 K AND F mass frac ≥ 0.65). Framed as supporting context for the
+project narrative, not a universal physical proof.
+
+---
+
+## 2026-03-17: Steps 47–50 — Phase 4 Planning (Pending)
+
+Step guides written and committed for steps 47–50. Step 47 skeleton code committed as WIP.
+state.yaml and step_dependencies.md updated. No steps executed yet.
+
+**Dependency order**: Steps 47 and 48 can run in parallel. Step 49 gates on Step 47
+(needs `model/saved/svm/cv_results.json`). Step 50 gates on Step 49 (needs
+`model/saved/rf_oob_convergence.json`). Sequence: {47 ∥ 48} → 49 → 50.
+
+**Step 47 (SVM Benchmark)**: Skeleton code exists at `model/svm/`, `model/linear/`,
+`scripts/train_step47.py`, `tests/test_svm.py`. Hard requirements are in place: `max_iter=10000`,
+all 4 gamma values (`scale`, `auto`, 0.01, 0.001), convergence warning capture, `cv_results_`
+saving to `model/saved/svm/cv_results.json`, grid boundary check. Run with:
+`python scripts/train_step47.py --outer-splits 10 --inner-cv 3`
+
+**Step 48 (Model Selection Validation)**: Closes the gap where XGBoost and chemprop were
+never tested on the fluorinated deployment domain. Requires `pip install gnnepcsaft` for the
+external benchmark. Create `scripts/step48_model_selection_validation.py`.
+
+**Step 49 (Convergence Diagnostics)**: Instruments GNN training (`model/gnn/train_gnn.py`)
+and chemprop wrapper (`model/chemprop_model/chemprop_wrapper.py`) to save history. Runs RF
+OOB analysis and XGBoost boosting-round trace. Depends on Step 47 for SVM cv_results.
+
+**Step 50 (RF Hyperparameter Sensitivity)**: Production RF hyperparameter grid search
+(240 configs, ε/k-specific), one-at-a-time sensitivity, feature importance stability,
+RF learning curve. Budget: 3–4 hours compute. Depends on Step 49 for n_estimators context.
+
+**Next action**: Launch Steps 47 and 48 in parallel on separate branches.
+
+---

@@ -671,3 +671,59 @@ steps:
       top_candidate: "F/C=C\\C(F)(F)[C@@H](F)C(F)(F)F"
       finding: no_fluorinated_dropin_for_cyclopentane
     approved: true
+  43_chlorobutene_deep_dive:
+    status: completed
+    artifacts:
+      - docs/reports/43_chlorobutene_deep_dive.md
+      - model/saved/chlorobutene_deep_dive.csv
+      - figures/43_chlorobutene_deep_dive/
+    metrics:
+      n_targets: 3
+      rf_bias_epsilon_k_mean_K: -1.6
+      outcome: likely_genuine_near_hit
+      tanimoto_nn_range: "0.62-0.67"
+    approved: true
+  44_rf_combined_retrain:
+    status: completed
+    artifacts:
+      - docs/reports/44_rf_combined_retrain.md
+    metrics:
+      rf_esper_r2_m: 0.6194
+      rf_esper_r2_sigma: 0.3573
+      rf_esper_r2_epsilon_k: 0.3264
+      rf_combined_r2_epsilon_k: 0.3117
+      n_combined_train: 1255
+      finding: esper_only_rf_marginally_better_on_general_benchmark
+    approved: true
+  45_rf_fluorinated_comparison:
+    status: completed
+    artifacts:
+      - docs/reports/45_rf_fluorinated_comparison.md
+    metrics:
+      rf_esper_fluorinated_epsilon_k_mae: 14.123
+      rf_combined_fluorinated_epsilon_k_mae: 12.026
+      rf_esper_fluorinated_sigma_r2: 0.756
+      rf_combined_fluorinated_sigma_r2: 0.827
+      recommendation: combined_rf_preferred_for_fluorinated
+    approved: true
+  46_universal_fluorination_anticorrelation:
+    status: completed
+    artifacts:
+      - docs/reports/46_universal_fluorination_anticorrelation.md
+      - figures/46_universal_anticorrelation/
+    metrics:
+      n_esper_carbon_molecules: 1734
+      mean_epsk_unfluorinated_K: 274
+      mean_epsk_a1_fluorinated_K: 176
+      n_high_epsk_high_fluorination: 0
+      finding: fluorination_epsk_anticorrelation_consistent_with_broader_esper
+    approved: true
+  # === Phase 4 Steps (Presentation Readiness) ===
+  47_svm_benchmark:
+    status: pending
+  48_model_selection_validation:
+    status: pending
+  49_convergence_diagnostics:
+    status: pending
+  50_rf_hyperparameter_sensitivity:
+    status: pending

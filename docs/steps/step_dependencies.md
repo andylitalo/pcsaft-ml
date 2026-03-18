@@ -296,6 +296,80 @@ steps:
       (cold-start latency, PVCs, GPU, service mesh). May never be
       executed for the current project scope.
 
+  47_svm_benchmark:
+    depends_on: [01, 15]
+    optional_deps: [dev]
+    produces:
+      - model/svm/svm_model.py (@register_model("svm"))
+      - model/linear/ridge_model.py (@register_model("ridge"))
+      - scripts/train_step47.py
+      - model/saved/step47_summary.json
+      - model/saved/svm/cv_results.json (needed by Step 49)
+      - figures/47_svm_benchmark/
+      - docs/reports/47_svm_benchmark.md
+    gates: [49]
+    notes: >
+      No new dependencies — sklearn.svm.SVR is already available.
+      Uses repeated stratified outer splits (not a single train/test split).
+      cv_results.json must be saved for Step 49 SVM CV heatmap.
+
+  48_model_selection_validation:
+    depends_on: [01, 02b, 15, 38d]
+    optional_deps: [dev, nn]
+    produces:
+      - scripts/step48_model_selection_validation.py
+      - model/saved/step48_model_selection.json
+      - model/saved/step48_model_selection_metadata.json
+      - model/saved/step48_fluorinated_all_models.csv
+      - model/saved/step48_esper_bootstrap.csv
+      - figures/48_model_selection_validation/
+      - docs/reports/48_model_selection_validation.md
+    gates: []
+    notes: >
+      Requires gnnepcsaft package (pip install gnnepcsaft) for external benchmark.
+      Needs saved artifacts for RF, XGBoost, chemprop, GNN.
+      Independent of Steps 47, 49, 50 — can run in parallel with Step 47.
+
+  49_convergence_diagnostics:
+    depends_on: [47, 01, 02, 02b, 04, 15]
+    optional_deps: [dev, nn, hf]
+    produces:
+      - scripts/step49_convergence_diagnostics.py
+      - model/saved/rf_oob_convergence.json
+      - model/saved/gnn_history_combined.json
+      - model/saved/gnn_history_all.json
+      - model/saved/xgb/cv_results.json
+      - model/saved/svm/cv_results.json (verified or regenerated from Step 47)
+      - model/saved/xgb/xgb_boosting_history.json
+      - model/saved/chemprop/chemprop_training_history.json
+      - figures/49_convergence_diagnostics/
+      - docs/reports/49_convergence_diagnostics.md
+    gates: [50]
+    notes: >
+      GNNePCSAFT excluded — external pre-trained benchmark with no project training history.
+      Requires Step 47 for model/saved/svm/cv_results.json (SVM heatmap).
+      Modifies model/gnn/train_gnn.py and model/chemprop_model/chemprop_wrapper.py
+      to add history saving; must retrain those models to produce new artifacts.
+
+  50_rf_hyperparameter_sensitivity:
+    depends_on: [49, 01]
+    optional_deps: [dev]
+    produces:
+      - scripts/step50_rf_hyperparameter_sensitivity.py
+      - model/saved/rf_hyperparam_search.json
+      - model/saved/rf_oat_sensitivity.json
+      - model/saved/rf_external_config_comparison.json
+      - model/saved/rf_feature_importance_stability.json
+      - model/saved/rf_learning_curve.json
+      - model/saved/rf_esper_error_analysis.csv
+      - figures/50_rf_hyperparameter_sensitivity/
+      - docs/reports/50_rf_hyperparameter_sensitivity.md
+    gates: []
+    notes: >
+      Requires rf_oob_convergence.json from Step 49 for n_estimators context.
+      Primary search is epsilon_k-specific (matches per-target production RF).
+      Budget: 3-4 hours (RF GridSearchCV with 240 configs is compute-heavy).
+
   # Future work (not in numbered sequence):
   # - Association parameter scoping: docs/steps/future/association_parameter_scoping.md
   #   Go/no-go memo on 5-parameter (ε_AB, κ_AB) prediction.
