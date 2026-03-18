@@ -720,10 +720,75 @@ steps:
     approved: true
   # === Phase 4 Steps (Presentation Readiness) ===
   47_svm_benchmark:
-    status: pending
+    status: completed
+    artifacts:
+      - model/svm/svm_model.py
+      - model/linear/ridge_model.py
+      - scripts/train_step47.py
+      - tests/test_svm.py
+      - tests/test_ridge.py
+      - model/saved/step47_summary.json
+      - model/saved/svm/cv_results.json
+      - docs/reports/47_svm_benchmark.md
+      - figures/47_svm_benchmark/
+    metrics:
+      svr_r2_epsilon_k: 0.325
+      svr_mae_epsilon_k: 29.94
+      ridge_r2_epsilon_k: -0.428
+      ridge_mae_epsilon_k: 32.55
+      n_outer_splits: 10
+      finding: representation_bottleneck_confirmed
+    approved: true
   48_model_selection_validation:
-    status: pending
+    status: completed
+    artifacts:
+      - scripts/step48_model_selection_validation.py
+      - model/saved/step48_model_selection.json
+      - model/saved/step48_model_selection_metadata.json
+      - docs/reports/48_model_selection_validation.md
+      - figures/48_model_selection_validation/
+    metrics:
+      rf_bp_mae_fluorinated_K: 8.16
+      chemprop_bp_mae_fluorinated_K: 19.33
+      gnn_bp_mae_fluorinated_K: 23.9
+      rf_q2_epsilon_k: 0.378
+      xgb_q2_epsilon_k: 0.337
+      decision: rf_confirmed_tier1_decisive
+    approved: true
   49_convergence_diagnostics:
-    status: pending
+    status: completed
+    artifacts:
+      - scripts/step49_convergence_diagnostics.py
+      - model/saved/rf_oob_convergence.json
+      - docs/reports/49_convergence_diagnostics.md
+      - figures/49_convergence_diagnostics/
+    metrics:
+      rf_oob_r2_m_at_100: 0.671
+      rf_oob_r2_sigma_at_100: 0.404
+      rf_oob_r2_epsilon_k_at_100: 0.447
+      n_figures_generated: 4
+      n_figures_deferred: 5
+      finding: rf_ensemble_size_validated
+    approved: true
   50_rf_hyperparameter_sensitivity:
-    status: pending
+    status: completed
+    artifacts:
+      - scripts/step50_rf_hyperparameter_sensitivity.py
+      - model/saved/rf_hyperparam_search.json
+      - model/saved/rf_oat_sensitivity.json
+      - model/saved/rf_production_vs_best.json
+      - model/saved/rf_external_config_comparison.json
+      - model/saved/rf_feature_importance_stability.json
+      - model/saved/rf_learning_curve.json
+      - docs/reports/50_rf_hyperparameter_sensitivity.md
+      - figures/50_rf_hyperparameter_sensitivity/
+    metrics:
+      best_cv_r2_epsilon_k: 0.4968
+      production_cv_r2_epsilon_k: 0.4746
+      production_rank: 2_of_240
+      delta_r2_test: 0.0008
+      bootstrap_ci_spans_zero: true
+      top_feature_epsilon_k: MinAbsEStateIndex
+      learning_curve_still_rising: true
+      finding: production_config_validated
+    approved: true
