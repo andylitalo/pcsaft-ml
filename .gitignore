@@ -61,6 +61,8 @@ model/saved/chemprop/
 model/saved/xgb/
 model/saved/nn/
 model/saved/gnn/
+model/saved/svm/*.joblib
+model/saved/linear/*.joblib
 screening/results/*.csv
 
 # Downloaded data (regenerate via scripts)

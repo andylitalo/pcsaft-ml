@@ -1,0 +1,54 @@
+{
+  "epsilon_k": {
+    "mean_fit_time": [
+      0.0005433559417724609
+    ],
+    "std_fit_time": [
+      0.0001285076141357422
+    ],
+    "mean_score_time": [
+      0.00027489662170410156
+    ],
+    "std_score_time": [
+      2.4080276489257812e-05
+    ],
+    "param_regressor__C": [
+      1
+    ],
+    "param_regressor__epsilon": [
+      0.1
+    ],
+    "param_regressor__gamma": [
+      "scale"
+    ],
+    "params": [
+      {
+        "regressor__C": "1",
+        "regressor__epsilon": "0.1",
+        "regressor__gamma": "scale"
+      }
+    ],
+    "split0_test_score": [
+      -0.4190753775887355
+    ],
+    "split1_test_score": [
+      -0.9227638565940188
+    ],
+    "mean_test_score": [
+      -0.6709196170913772
+    ],
+    "std_test_score": [
+      0.2518442395026417
+    ],
+    "rank_test_score": [
+      1
+    ],
+    "best_params": {
+      "regressor__C": "1",
+      "regressor__epsilon": "0.1",
+      "regressor__gamma": "scale"
+    },
+    "best_score": -0.6709196170913772,
+    "n_convergence_warnings": 0
+  }
+}
