@@ -1,0 +1,35 @@
+{
+  "step": 48,
+  "provenance": {
+    "feature_config_hash": "593e5743fe14",
+    "test_split_hash": "e456ecf90038",
+    "test_split_n": 2753,
+    "artifact_paths": {
+      "rf": "/Users/aylitalo/Documents/personal/interviews/process/ml_chem/model/saved",
+      "gnn": "/Users/aylitalo/Documents/personal/interviews/process/ml_chem/model/saved",
+      "xgboost": "/Users/aylitalo/Documents/personal/interviews/process/ml_chem/model/saved/xgb/xgb_model.joblib",
+      "chemprop": "/Users/aylitalo/Documents/personal/interviews/process/ml_chem/model/saved/chemprop/chemprop_model.pt"
+    },
+    "gnnepcsaft_version": "not_installed"
+  },
+  "fluorinated_validation": {
+    "n_compounds": 15,
+    "source": "/Users/aylitalo/Documents/personal/interviews/process/ml_chem/model/saved/gnn_fluorinated_validation_set.csv"
+  },
+  "test_set": {
+    "n_molecules": 2753,
+    "source": "/Users/aylitalo/Documents/personal/interviews/process/ml_chem/model/saved/test_set.csv",
+    "split_hash": "e456ecf90038"
+  },
+  "leakage_audit": {
+    "n_exact_overlap": 11,
+    "mean_tanimoto": 0.9004678362573099,
+    "max_tanimoto": 1.0
+  },
+  "models_evaluated": [
+    "rf",
+    "chemprop",
+    "gnn"
+  ],
+  "selected_model": "rf"
+}

@@ -1,0 +1,23 @@
+{
+  "step": 48,
+  "criteria": [
+    {
+      "name": "tier1_bp_mae",
+      "best_model": "rf",
+      "best_mae": 8.164058235182551,
+      "second_model": "chemprop",
+      "second_mae": 19.333667049028687,
+      "gap_K": 11.169608813846136,
+      "meets_5K_threshold": true,
+      "paired_ci_significant": true,
+      "tier1_decisive": true
+    }
+  ],
+  "tier1_decisive": true,
+  "selected_model": "rf",
+  "verdict": "RF selected as deployment model. Evidence: Tier 1 decisive (8.2 K BP MAE on fluorinated validation).",
+  "throughput": {
+    "rf": 181.95686874733602,
+    "gnn": 3893.8156492061444
+  }
+}
