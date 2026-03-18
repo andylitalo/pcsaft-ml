@@ -792,3 +792,23 @@ steps:
       learning_curve_still_rising: true
       finding: production_config_validated
     approved: true
+  52_log_target_transform:
+    status: completed
+    artifacts:
+      - scripts/step52_log_target_transform.py
+      - docs/reports/52_log_target_transform.md
+      - figures/52_log_target_transform/
+      - model/saved/step52_log_transform_results.json
+    metrics:
+      rf_raw_r2_epsilon_k: 0.329
+      rf_log_r2_epsilon_k: 0.287
+      rf_raw_fluorinated_mae_epsilon_k: 14.24
+      rf_log_fluorinated_mae_epsilon_k: 13.39
+      fluorinated_bootstrap_ci: "[-2.78, +0.64]"
+      cv_m_r2_delta_rf: +0.0082
+      cv_epsilon_k_r2_delta_rf: -0.0068
+      bp_mae_rf_raw: 7.67
+      bp_mae_rf_log: 7.35
+      recommendation: reject
+      finding: log_transform_no_significant_fluorinated_improvement
+    approved: true

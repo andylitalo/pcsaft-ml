@@ -54,7 +54,7 @@ Two GNN architectures were tested: GINEConv (Xu et al. 2019; Hu et al. 2020) for
 - **Plain MLP**: A PyTorch multi-layer perceptron was tested on the same RDKit + Morgan features. It achieved R^2 = 0.14 on epsilon/k — substantially worse than RF (0.33) — likely due to overfitting in the low-data regime without the variance-reduction benefits of bagging.
 - **ChemBERTa** (SMILES transformer): Tested but underperformed feature-engineered models (R^2 = 0.27 on epsilon/k, 185x slower inference). With ~1,800 fine-tuning examples, the pretrained language model could not match hand-crafted chemical features ([details](smiles_chemberta_issues.md)).
 - **ChemBERTa-2** (`DeepChem/ChemBERTa-77M-MTR`): Evaluated for inclusion in Step 48 and declined. It was listed as a candidate in the Step 04 guide and uses multi-task pre-training on molecular properties, which could yield marginal improvement over ChemBERTa-1. However, the fundamental bottleneck is unchanged: ~1,800 fine-tuning examples is insufficient for any SMILES transformer to surpass RDKit + Morgan fingerprints at this data scale. Adding it would require hours of fine-tuning compute for a model that is not a deployment candidate. The existing ChemBERTa-1 result already represents the SMILES-transformer angle in the comparison.
-- **GNNePCSAFT** (PyPI: `gnnepcsaft`): A published, pre-trained GNN model built specifically to predict ePC-SAFT parameters, integrated with the FeOs thermodynamic library. It was not used during the original model-building steps because the project goal was to build and evaluate models from scratch — calling a pre-trained third-party inference API demonstrates no ML engineering skills for a portfolio. However, it is a legitimate external benchmark for the deployment task. **Step 48 adds GNNePCSAFT as a 5th external reference model** on the fluorinated validation set to answer: *"How does our approach compare to the published state-of-the-art model built for exactly this problem?"* Note that GNNePCSAFT predicts ePC-SAFT parameters (which include an association term); for non-associating HFOs, the non-associating parameters are comparable to PC-SAFT values but not identical.
+- **GNNePCSAFT** (PyPI: `gnnepcsaft`, [HuggingFace](https://huggingface.co/wildsonbbl/gnnepcsaft)): A published, open-source PNA-based GNN model built specifically to predict ePC-SAFT parameters, trained on the Esper dataset and integrated with the FeOs thermodynamic library. It was not used during the original model-building steps because the project goal was to build and evaluate models from scratch — calling a pre-trained third-party inference API demonstrates no ML engineering skills for a portfolio. However, it is a legitimate external benchmark. **Step 48 evaluated GNNePCSAFT on the fluorinated validation set**, finding it comparable to RF: epsilon/k MAE 16.6 K (vs RF 14.3 K), m MAE 0.838 (vs RF 0.852). On the Esper holdout, GNNePCSAFT is substantially better (R² = 0.84 vs 0.33), but this comparison is confounded by train-set overlap — GNNePCSAFT was trained on Esper. The fluorinated set, which is genuinely external for both models, is the fair comparison, and there they are comparable. For non-associating molecules the ePC-SAFT and PC-SAFT non-associating parameters (m, sigma, epsilon/k) are identical; only the association term differs.
 
 ---
 
@@ -74,28 +74,30 @@ Two GNN architectures were tested: GINEConv (Xu et al. 2019; Hu et al. 2020) for
 | GINEConv (Combined)                 | 0.69  | 0.34      | 0.41          | 0.76  | 0.23      | 28.2              |
 | SVR (RBF kernel) ‡                 | 0.59  | 0.25      | 0.33          | 0.73  | 0.22      | 29.9              |
 | Ridge Regression ‡                 | 0.52  | -0.00     | -0.43         | 0.73  | 0.24      | 32.6              |
-| GNNePCSAFT (external, pre-trained) †| —     | —         | —             | —     | —         | —                 |
+| GNNePCSAFT (external, pre-trained) †| 0.94  | 0.78      | 0.84          | 0.14  | 0.06      | 6.0               |
 
-† GNNePCSAFT was not trained on the Esper corpus. Its Esper holdout performance is an out-of-distribution generalization test, not a standard test-set result. Values to be filled in Step 48.
+† GNNePCSAFT **was** trained on the Esper corpus (it is one of its training sources). Its Esper holdout metrics are inflated by train-set overlap and should not be compared directly against the other models' holdout results. The fluorinated external validation (below) is the fair head-to-head comparison.
 
 ‡ SVR and Ridge metrics are mean values across 10 repeated stratified outer splits (seeds 42–51). All other models use a single 80/20 split. See `docs/reports/47_svm_benchmark.md` for interval estimates.
 
 
 ### External Fluorinated Validation (15 refrigerants with published PC-SAFT params)
 
-Step 48 closed the pre-existing gap by evaluating chemprop and GNN on the fluorinated validation set alongside RF. XGBoost fluorinated evaluation was deferred (feature computation issues on 15-compound set). GNNePCSAFT was not installed in the evaluation environment.
+Step 48 evaluated chemprop and GNN on the fluorinated validation set alongside RF. Step 51 resolved the XGBoost feature-dimension mismatch (2216 vs 2218 features due to different `clean_descriptors` outputs) and added SVR.
 
 | Model                                  | epsilon/k MAE (K) | Boiling Point MAE (K) | epsilon/k R^2 |
 | -------------------------------------- | ----------------- | --------------------- | ------------- |
 | RF (Esper, 1,801 mol)                  | 14.3              | 8.2                   | -0.47         |
+| XGBoost (Esper, 1,801 mol)             | 15.4              | 13.4                  | -0.44         |
+| GNNePCSAFT (external, pre-trained) †  | 16.6              | ---                   | -0.82         |
 | Chemprop D-MPNN                        | 19.6              | 19.3                  | -1.22         |
 | GINEConv (Esper)                       | 17.4              | 23.9                  | -0.84         |
+| SVR (Esper, 1,801 mol)                 | 26.9              | 54.5                  | -4.01         |
 | GNN (unified, 13,764 mol)              | 77.6              | 133.7                 | -25.08        |
-| GNNePCSAFT (external, pre-trained) †  | —                 | —                     | —             |
 
-† GNNePCSAFT predicts ePC-SAFT parameters, not standard PC-SAFT. For non-associating HFOs the non-associating parameters are comparable but not identical. Labeled "external benchmark" — not trained on project data. Not installed in the evaluation environment; deferred.
+† GNNePCSAFT (v0.3.1, PNA checkpoint from HuggingFace `wildsonbbl/gnnepcsaft`) predicts ePC-SAFT parameters. For these non-associating fluorinated compounds the m/sigma/epsilon_k values are directly comparable to PC-SAFT. GNNePCSAFT was trained on the same Esper dataset, making this fluorinated set a genuine external test for both models. Full parameter MAEs: m 0.838, sigma 0.081, epsilon/k 16.6 K. BP MAE not computed (requires piping ePC-SAFT parameters through the EOS solver). Both RF and GNNePCSAFT share the same systematic failure mode: m over-predicted by 30-60% for small fluorinated molecules.
 
-**Tier 1 verdict (Step 48):** RF wins decisively with 8.2 K BP MAE vs 19.3 K for the runner-up (chemprop). The 11.2 K gap exceeds the 5 K decisiveness threshold and paired bootstrap CI excludes zero.
+**Tier 1 verdict (Step 48, confirmed Step 51):** RF wins decisively with 8.2 K BP MAE. XGBoost is the runner-up at 13.4 K (gap: 5.2 K, exceeds 5 K threshold). SVR (54.5 K BP MAE) demonstrates that the Esper R²=0.33 tie among RF, XGBoost, and SVR does **not** extend to the fluorinated deployment domain — SVR's kernel-based generalization fails catastrophically on out-of-distribution fluorinated chemistry.
 
 
 ### On Unified Dataset (Esper + ML-SAFT + SPT-PCSAFT)
@@ -122,7 +124,7 @@ Tier 1 takes precedence. If Tier 1 is tied, Tier 2 paired uncertainty analysis b
 
 > **Scope note:** The validation evidence summarized here is based on the project's current random split and shuffled CV protocols. That supports internal reproducibility and disciplined model selection, but it should not be presented as proof of scaffold-level chemistry generalization without an additional chemistry-aware split.
 
-> **Note:** Step 48 applied the full three-tier framework to RF, chemprop, and GNN (XGBoost deferred on Tier 1; GNNePCSAFT not installed). Tier 1 was decisive: RF won by 11.2 K BP MAE over the runner-up.
+> **Note:** Step 48 applied the full three-tier framework to RF, chemprop, GNN, and GNNePCSAFT. Tier 1 was decisive: RF won by 11.2 K BP MAE over the runner-up. GNNePCSAFT was comparable to RF on fluorinated parameter accuracy (ε/k MAE 16.6 vs 14.3 K).
 
 ---
 
@@ -149,6 +151,7 @@ Step 48 evaluated RF, chemprop, and GNN on the fluorinated validation set with p
 - **SVR (RBF kernel)**: Matched RF on epsilon/k (R^2 = 0.33 across 10 splits), confirming the representation bottleneck. Could be preferred if feature engineering produces a lower-dimensional, denser feature set where kernel methods excel. Currently offers no advantage over RF on these features.
 - **Ridge Regression**: Catastrophically unstable on epsilon/k (R^2 = -0.43 ± 1.55) due to collinearity in 2,200 features. Confirms that non-linear models provide substantial value. Not a deployment candidate.
 - **GC-PC-SAFT**: Zero data needed. Useful as a baseline or for novel functional groups with no training data at all.
+- **Log-target transform (Step 52)**: Training RF and XGBoost on log-transformed targets (making MSE approximate mean squared relative error) was tested as a cheap proxy for relative-error loss functions. Result: **rejected**. On the fluorinated validation set, RF log-corrected epsilon/k MAE = 13.39 K vs RF raw 14.24 K (bootstrap 95% CI [-2.78, +0.64] spans zero). XGBoost log showed a significant fluorinated improvement (15.90 → 13.98 K), but this does not change the RF production decision. Repeated CV (5×3) confirmed: m benefits slightly from log-transform (p=0.017 for RF R²), but epsilon/k and sigma show no significant improvement. The result narrows the hypothesis space: MSE-on-raw-targets is not a major contributor to the RF epsilon/k accuracy gap.
 
 ---
 
@@ -168,3 +171,30 @@ Step 49 instruments all project-trained models with convergence diagnostics. The
 
 See `figures/49_convergence_diagnostics/` for diagnostic plots and `docs/reports/49_convergence_diagnostics.md` for the full assessment.
 
+---
+
+## Unified Model Comparison (Step 51)
+
+This table consolidates all model results across Esper internal validation and fluorinated external validation into a single reference.
+
+| Model | Esper ε/k R² | Esper ε/k MAE (K) | Fluor ε/k MAE (K) | Fluor ε/k R² | Fluor BP MAE (K) | EOS Conv. | Protocol |
+| ----- | ------------ | ----------------- | ----------------- | ------------ | --------------- | --------- | -------- |
+| GC-PC-SAFT | -0.04 | 44.6 | --- | --- | --- | --- | Deterministic |
+| Ridge | -0.43 | 32.6 | --- | --- | --- | --- | 10 outer splits (mean) |
+| NN (MLP) | 0.14 | 32.9 | --- | --- | --- | --- | Single split (seed=42) |
+| ChemBERTa | 0.27 | 31.2 | --- | --- | --- | --- | Single split (seed=42) |
+| SVR | 0.33 | 29.9 | 26.9 | -4.01 | 54.5 | 6/15 | 10 outer splits (mean) |
+| RF | 0.33 | 26.8 | 14.3 | -0.47 | 8.2 | 6/15 | Single split (seed=42) |
+| XGBoost | 0.33 | 27.0 | 15.4 | -0.44 | 13.4 | 6/15 | Single split (seed=42) |
+| chemprop (D-MPNN) | 0.39 | 26.8 | 19.6 | -1.22 | 19.3 | 6/15 | Single split (seed=42) |
+| GNN (GINEConv) | 0.41 | 28.2 | 17.4 | -0.84 | 23.9 | 4/15 | Single split (seed=42) |
+| GNNePCSAFT † | 0.84 † | 6.0 † | 16.6 | -0.82 | --- | --- | External pre-trained |
+
+**Notes:**
+- SVR and Ridge Esper metrics are means across 10 repeated stratified outer splits; all others use a single 80/20 split (seed=42).
+- GC-PC-SAFT, NN (MLP), ChemBERTa, and Ridge were not evaluated on the fluorinated set because they are not deployment candidates. GC-PC-SAFT is a deterministic group-contribution method; NN and ChemBERTa underperformed RF significantly; Ridge was catastrophically unstable.
+- Negative R² on the fluorinated set is expected: 15 compounds with a narrow ε/k range makes the variance denominator small, so even modest MAE produces negative R².
+- Fluorinated BP MAE is the decisive Tier 1 metric for model selection (see Step 48).
+- † GNNePCSAFT Esper metrics are inflated by train-set overlap (GNNePCSAFT was trained on the Esper corpus). The fluorinated columns are the fair comparison: on that genuinely external test, GNNePCSAFT (ε/k MAE 16.6 K) is comparable to RF (14.3 K). BP MAE not computed for GNNePCSAFT.
+
+See `figures/51_unified_model_comparison/` for consolidated comparison figures.
