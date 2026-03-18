@@ -12,19 +12,23 @@ Five models were evaluated: **RF**, **XGBoost**, **chemprop** (D-MPNN), **GNN** 
 
 ### Parameter Accuracy
 
-| Model | m MAE | sigma MAE | epsilon/k MAE (K) | epsilon/k R2 |
-|-------|-------|-----------|-------------------|-------------|
-| RF | 0.852 | 0.072 | 14.3 | -0.467 |
-| chemprop | 0.718 | 0.056 | 19.6 | -1.219 |
-| GNN | 0.705 | 0.056 | 17.4 | -0.841 |
+
+| Model    | m MAE | sigma MAE | epsilon/k MAE (K) | epsilon/k R2 |
+| -------- | ----- | --------- | ----------------- | ------------ |
+| RF       | 0.852 | 0.072     | 14.3              | -0.467       |
+| chemprop | 0.718 | 0.056     | 19.6              | -1.219       |
+| GNN      | 0.705 | 0.056     | 17.4              | -0.841       |
+
 
 ### Boiling Point Accuracy
 
-| Model | BP MAE (K) | BP RMSE (K) | EOS Convergence |
-|-------|-----------|-------------|-----------------|
-| RF | 8.2 | 10.3 | 6/15 |
-| chemprop | 19.3 | 22.8 | 6/15 |
-| GNN | 23.9 | 26.5 | 4/15 |
+
+| Model    | BP MAE (K) | BP RMSE (K) | EOS Convergence |
+| -------- | ---------- | ----------- | --------------- |
+| RF       | 8.2        | 10.3        | 6/15            |
+| chemprop | 19.3       | 22.8        | 6/15            |
+| GNN      | 23.9       | 26.5        | 4/15            |
+
 
 ### Data Leakage Audit
 
@@ -37,17 +41,21 @@ Five models were evaluated: **RF**, **XGBoost**, **chemprop** (D-MPNN), **GNN** 
 
 Test set: 2753 molecules (split hash: e456ecf90038)
 
-| Model | eps/k R2 [95% CI] | eps/k MAE [95% CI] |
-|-------|-------------------|---------------------|
-| RF | 0.236 [0.157, 0.307] | 23.4 [22.5, 24.4] |
-| GNN | 0.728 [0.675, 0.779] | 10.0 [9.4, 10.7] |
+
+| Model | eps/k R2 [95% CI]    | eps/k MAE [95% CI] |
+| ----- | -------------------- | ------------------ |
+| RF    | 0.236 [0.157, 0.307] | 23.4 [22.5, 24.4]  |
+| GNN   | 0.728 [0.675, 0.779] | 10.0 [9.4, 10.7]   |
+
 
 ## Tier 3: Cross-Validated Q2 (5-fold, tree models)
 
-| Model | Q2 m | Q2 sigma | Q2 epsilon/k |
-|-------|------|----------|--------------|
-| RF | 0.632 +/- 0.069 | 0.343 +/- 0.059 | 0.378 +/- 0.064 |
+
+| Model   | Q2 m            | Q2 sigma        | Q2 epsilon/k    |
+| ------- | --------------- | --------------- | --------------- |
+| RF      | 0.632 +/- 0.069 | 0.343 +/- 0.059 | 0.378 +/- 0.064 |
 | XGBoost | 0.615 +/- 0.075 | 0.349 +/- 0.038 | 0.337 +/- 0.057 |
+
 
 Note: chemprop, GNN, and GNNePCSAFT Q2 deferred (require per-fold retraining; this is a tree-only robustness check).
 
@@ -80,11 +88,12 @@ All figures saved to `figures/48_model_selection_validation/`.
 
 ## Readiness Check
 
-- [x] All available models evaluated on fluorinated validation set
-- [x] Esper holdout metrics include bootstrap 95% CIs
-- [x] Paired comparisons use bootstrapped metric differences
-- [x] Data leakage audit documented
-- [x] Tanimoto nearest-neighbor similarity recorded
-- [x] Model selection decision documented with explicit evidence
-- [x] Provenance metadata saved
-- [x] Figures generated
+- All available models evaluated on fluorinated validation set
+- Esper holdout metrics include bootstrap 95% CIs
+- Paired comparisons use bootstrapped metric differences
+- Data leakage audit documented
+- Tanimoto nearest-neighbor similarity recorded
+- Model selection decision documented with explicit evidence
+- Provenance metadata saved
+- Figures generated
+
