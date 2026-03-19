@@ -15,13 +15,15 @@ This step validates whether the production Random Forest's hyperparameters (n_es
 
 ### Top 5 Configurations
 
-| Rank | n_est | max_features | max_depth | min_samples_leaf | CV R2 |
-|------|-------|-------------|-----------|-----------------|-------|
-| 1 | 500 | 0.5 | None | 3 | 0.4968 |
-| 2 | 500 | 0.5 | 30 | 3 | 0.4968 |
-| 3 | 500 | 0.3 | 20 | 3 | 0.4959 |
-| 4 | 500 | 0.3 | 30 | 3 | 0.4958 |
-| 5 | 200 | 0.3 | 20 | 3 | 0.4956 |
+
+| Rank | n_est | max_features | max_depth | min_samples_leaf | CV R2  |
+| ---- | ----- | ------------ | --------- | ---------------- | ------ |
+| 1    | 500   | 0.5          | None      | 3                | 0.4968 |
+| 2    | 500   | 0.5          | 30        | 3                | 0.4968 |
+| 3    | 500   | 0.3          | 20        | 3                | 0.4959 |
+| 4    | 500   | 0.3          | 30        | 3                | 0.4958 |
+| 5    | 200   | 0.3          | 20        | 3                | 0.4956 |
+
 
 ## Local Sensitivity Analysis
 
@@ -31,11 +33,13 @@ See `figures/50_rf_hyperparameter_sensitivity/oat_sensitivity_epsilon_k.png`.
 
 ## Production vs Best Comparison
 
-| Metric | Production | Best Config | Delta |
-|--------|-----------|------------|-------|
-| R2 | 0.3341 | 0.3349 | +0.0008 |
-| MAE | 26.8383 | 26.3129 | -0.5254 |
-| RMSE | 51.1172 | 51.0852 | -0.0320 |
+
+| Metric | Production | Best Config | Delta   |
+| ------ | ---------- | ----------- | ------- |
+| R2     | 0.3341     | 0.3349      | +0.0008 |
+| MAE    | 26.8383    | 26.3129     | -0.5254 |
+| RMSE   | 51.1172    | 51.0852     | -0.0320 |
+
 
 **Paired Bootstrap (2000 resamples):**
 
@@ -45,12 +49,13 @@ See `figures/50_rf_hyperparameter_sensitivity/oat_sensitivity_epsilon_k.png`.
 
 ## External Validation of Candidate Configs
 
-| Config | epsilon_k MAE | epsilon_k R2 | BP MAE (K) |
-|--------|-------------|------------|-----------|
-| production | 13.260 | -0.152 | N/A |
-| grid_rank_1 | 12.380 | -0.091 | N/A |
-| grid_rank_2 | 12.425 | -0.097 | N/A |
-| grid_rank_3 | 12.268 | -0.081 | N/A |
+
+| Config      | epsilon_k MAE | epsilon_k R2 | BP MAE (K) |
+| ----------- | ------------- | ------------ | ---------- |
+| production  | 13.260        | -0.152       | N/A        |
+| grid_rank_1 | 12.380        | -0.091       | N/A        |
+| grid_rank_2 | 12.425        | -0.097       | N/A        |
+| grid_rank_3 | 12.268        | -0.081       | N/A        |
 
 
 ## Feature Importance Stability
@@ -61,18 +66,20 @@ See `figures/50_rf_hyperparameter_sensitivity/oat_sensitivity_epsilon_k.png`.
 
 ### Top 10 Features by Mean Gini Importance (epsilon_k)
 
-| Feature | Mean Importance | Std | CV |
-|---------|----------------|-----|-----|
-| MinAbsEStateIndex | 0.0177 | 0.0031 | 0.17 |
-| VSA_EState7 | 0.0165 | 0.0023 | 0.14 |
-| MinEStateIndex | 0.0162 | 0.0023 | 0.14 |
-| BCUT2D_MRHI | 0.0160 | 0.0011 | 0.07 |
-| RingCount | 0.0154 | 0.0040 | 0.26 |
-| MaxPartialCharge | 0.0140 | 0.0015 | 0.11 |
-| Kappa3 | 0.0132 | 0.0017 | 0.13 |
-| qed | 0.0129 | 0.0027 | 0.21 |
-| BCUT2D_MRLOW | 0.0129 | 0.0006 | 0.05 |
-| Chi1v | 0.0129 | 0.0016 | 0.12 |
+
+| Feature           | Mean Importance | Std    | CV   |
+| ----------------- | --------------- | ------ | ---- |
+| MinAbsEStateIndex | 0.0177          | 0.0031 | 0.17 |
+| VSA_EState7       | 0.0165          | 0.0023 | 0.14 |
+| MinEStateIndex    | 0.0162          | 0.0023 | 0.14 |
+| BCUT2D_MRHI       | 0.0160          | 0.0011 | 0.07 |
+| RingCount         | 0.0154          | 0.0040 | 0.26 |
+| MaxPartialCharge  | 0.0140          | 0.0015 | 0.11 |
+| Kappa3            | 0.0132          | 0.0017 | 0.13 |
+| qed               | 0.0129          | 0.0027 | 0.21 |
+| BCUT2D_MRLOW      | 0.0129          | 0.0006 | 0.05 |
+| Chi1v             | 0.0129          | 0.0016 | 0.12 |
+
 
 **Caveat**: With ~2,200 features, many are correlated. Both Gini and permutation importance distribute importance across correlated groups. Stable rankings indicate repeatability, not direct physical interpretability.
 
@@ -82,15 +89,17 @@ See `figures/50_rf_hyperparameter_sensitivity/feature_importance_stability.png`.
 
 The RF learning curve shows CV test R-squared for epsilon_k at training set sizes from 115 to 1152 molecules.
 
+
 | Train Size | CV Test R2 (mean) |
-|-----------|------------------|
-| 115 | 0.3351 |
-| 230 | 0.3960 |
-| 345 | 0.4017 |
-| 576 | 0.4362 |
-| 806 | 0.4486 |
-| 979 | 0.4631 |
-| 1152 | 0.4746 |
+| ---------- | ----------------- |
+| 115        | 0.3351            |
+| 230        | 0.3960            |
+| 345        | 0.4017            |
+| 576        | 0.4362            |
+| 806        | 0.4486            |
+| 979        | 0.4631            |
+| 1152       | 0.4746            |
+
 
 Last increment: +0.0115 R-squared. 
 The curve is still rising, suggesting more data could improve performance.
@@ -138,6 +147,7 @@ See `figures/50_rf_hyperparameter_sensitivity/error_analysis_residuals.png`.
 ## Figures
 
 See `figures/50_rf_hyperparameter_sensitivity/` for:
+
 1. `oat_sensitivity_epsilon_k.png` -- One-at-a-time sensitivity (2x2 grid)
 2. `cv_heatmap_n_estimators_vs_max_depth.png` -- CV heatmap of n_estimators vs max_depth
 3. `feature_importance_stability.png` -- Box plots for top 20 features across 5 folds
@@ -146,13 +156,13 @@ See `figures/50_rf_hyperparameter_sensitivity/` for:
 
 ## Readiness Check
 
-- [ ] Primary grid search completed for epsilon_k (per-target RF)
-- [ ] OAT sensitivity plots show local sensitivity near production
-- [ ] Production vs best uses paired bootstrap (not CI overlap)
-- [ ] Top configs checked on fluorinated external validation
-- [ ] Feature importance stability assessed across 5 folds
-- [ ] RF learning curve generated for epsilon_k
-- [ ] Systematic error analysis with residual plots and worst molecules
-- [ ] At least 5 figures saved to `figures/50_rf_hyperparameter_sensitivity/`
-- [ ] Report written
+- Primary grid search completed for epsilon_k (per-target RF)
+- OAT sensitivity plots show local sensitivity near production
+- Production vs best uses paired bootstrap (not CI overlap)
+- Top configs checked on fluorinated external validation
+- Feature importance stability assessed across 5 folds
+- RF learning curve generated for epsilon_k
+- Systematic error analysis with residual plots and worst molecules
+- At least 5 figures saved to `figures/50_rf_hyperparameter_sensitivity/`
+- Report written
 

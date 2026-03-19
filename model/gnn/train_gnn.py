@@ -16,6 +16,7 @@ import pandas as pd
 import torch
 import torch.nn as nn
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.model_selection import train_test_split
 from torch_geometric.loader import DataLoader
 
 from model.data.load import TARGETS, load_data, split_data
@@ -62,6 +63,7 @@ def train_gnn(
     dropout: float = 0.1,
     patience: int = 15,
     weight_decay: float = 1e-5,
+    ma_window: int = 10,
 ) -> dict:
     """Train GNN on PC-SAFT data and save to model/saved/.
 
@@ -101,22 +103,41 @@ def train_gnn(
         print(f"Saved test set to {test_set_path}")
         print(f"Train: {len(train_df)}, Test: {len(test_df)}")
 
-    train_smiles = train_df["smiles"].tolist()
+    # Carve a validation set from train_df for early stopping (keep test_df untouched)
+    train_inner_df, val_df = train_test_split(
+        train_df, test_size=0.15, random_state=42,
+    )
+    train_inner_df = train_inner_df.reset_index(drop=True)
+    val_df = val_df.reset_index(drop=True)
+    print(
+        f"Split: {len(train_inner_df)} train / {len(val_df)} val / "
+        f"{len(test_df)} test"
+    )
+
+    train_smiles = train_inner_df["smiles"].tolist()
+    val_smiles = val_df["smiles"].tolist()
     test_smiles = test_df["smiles"].tolist()
-    train_targets = train_df[TARGETS].values.astype(np.float32)
+    train_targets = train_inner_df[TARGETS].values.astype(np.float32)
+    val_targets = val_df[TARGETS].values.astype(np.float32)
     test_targets = test_df[TARGETS].values.astype(np.float32)
 
-    # Normalize targets
+    # Normalize targets (scalers fitted on train_inner only)
     target_scalers = _compute_target_scalers(train_targets)
     train_targets_norm = _normalize_targets(train_targets, target_scalers)
+    val_targets_norm = _normalize_targets(val_targets, target_scalers)
     test_targets_norm = _normalize_targets(test_targets, target_scalers)
 
     print("Building molecular graphs...")
     train_dataset = MoleculeGraphDataset(train_smiles, train_targets_norm)
+    val_dataset = MoleculeGraphDataset(val_smiles, val_targets_norm)
     test_dataset = MoleculeGraphDataset(test_smiles, test_targets_norm)
-    print(f"Graphs built: {len(train_dataset)} train, {len(test_dataset)} test")
+    print(
+        f"Graphs built: {len(train_dataset)} train, "
+        f"{len(val_dataset)} val, {len(test_dataset)} test"
+    )
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -142,9 +163,12 @@ def train_gnn(
     )
     criterion = nn.MSELoss()
 
-    best_val_loss = float("inf")
+    best_val_ma = float("inf")
     best_state = None
+    best_epoch = 0
     no_improve = 0
+    train_losses: list[float] = []
+    val_losses: list[float] = []
 
     for epoch in range(1, epochs + 1):
         # --- Train ---
@@ -163,12 +187,12 @@ def train_gnn(
             n_batches += 1
         train_loss /= max(n_batches, 1)
 
-        # --- Eval ---
+        # --- Eval on validation set (NOT test set) ---
         model.eval()
         val_loss = 0.0
         n_val = 0
         with torch.no_grad():
-            for batch in test_loader:
+            for batch in val_loader:
                 batch = batch.to(device)
                 pred = model(
                     batch.x, batch.edge_index, batch.edge_attr, batch.batch
@@ -176,6 +200,13 @@ def train_gnn(
                 val_loss += criterion(pred, batch.y).item()
                 n_val += 1
         val_loss /= max(n_val, 1)
+
+        train_losses.append(train_loss)
+        val_losses.append(val_loss)
+
+        # Early stopping on moving-average val loss to smooth noisy curves
+        recent = val_losses[-ma_window:]
+        val_ma = sum(recent) / len(recent)
 
         scheduler.step()
         current_lr = scheduler.get_last_lr()[0]
@@ -185,11 +216,13 @@ def train_gnn(
                 f"Epoch {epoch:3d}/{epochs} | "
                 f"train_loss={train_loss:.5f} | "
                 f"val_loss={val_loss:.5f} | "
+                f"val_ma={val_ma:.5f} | "
                 f"lr={current_lr:.2e}"
             )
 
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
+        if val_ma < best_val_ma:
+            best_val_ma = val_ma
+            best_epoch = epoch
             best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
             no_improve = 0
         else:
@@ -256,6 +289,25 @@ def train_gnn(
 
     metrics_path = SAVED_DIR / "gnn_metrics.json"
     metrics_path.write_text(json.dumps(metrics, indent=2))
+
+    # Save per-epoch training history for convergence diagnostics (Step 49)
+    history = {
+        "epochs": list(range(1, len(train_losses) + 1)),
+        "train_loss": train_losses,
+        "val_loss": val_losses,
+        "best_epoch": best_epoch,
+        "final_lr": scheduler.get_last_lr()[0],
+        "source": source,
+        "split_role": {
+            "train": len(train_dataset),
+            "val": len(val_dataset),
+            "test": len(test_dataset),
+            "early_stopping_monitor": "validation_loss",
+        },
+    }
+    history_path = SAVED_DIR / f"gnn_history_{source}.json"
+    history_path.write_text(json.dumps(history, indent=2) + "\n")
+    print(f"Training history saved to {history_path}")
 
     return metrics
 

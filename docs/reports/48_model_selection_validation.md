@@ -13,11 +13,16 @@ Five models were evaluated: **RF**, **XGBoost**, **chemprop** (D-MPNN), **GNN** 
 ### Parameter Accuracy
 
 
-| Model    | m MAE | sigma MAE | epsilon/k MAE (K) | epsilon/k R2 |
-| -------- | ----- | --------- | ----------------- | ------------ |
-| RF       | 0.852 | 0.072     | 14.3              | -0.467       |
-| chemprop | 0.718 | 0.056     | 19.6              | -1.219       |
-| GNN      | 0.705 | 0.056     | 17.4              | -0.841       |
+| Model        | m MAE | sigma MAE | epsilon/k MAE (K) | epsilon/k R2 |
+| ------------ | ----- | --------- | ----------------- | ------------ |
+| RF           | 0.852 | 0.072     | 14.3              | -0.467       |
+| chemprop     | 0.718 | 0.056     | 19.6              | -1.219       |
+| GNN          | 0.705 | 0.056     | 17.4              | -0.841       |
+| XGBoost      | 0.777 | 0.051     | 15.4              | -0.443       |
+| SVR          | 0.870 | 0.110     | 26.9              | -4.013       |
+| GNNePCSAFT † | 0.838 | 0.081     | 16.6              | -0.824       |
+
+† GNNePCSAFT (v0.3.1, PNA checkpoint `model-hlrn7lqv` from HuggingFace `wildsonbbl/gnnepcsaft`). Predicts ePC-SAFT parameters; for these non-associating compounds the m/sigma/epsilon_k values are directly comparable. GNNePCSAFT was trained on the Esper dataset, so this fluorinated set is a genuine external test for both RF and GNNePCSAFT. Both models share the same systematic failure mode: m is over-predicted by 30-60% for small fluorinated molecules, pointing to a training-data gap rather than an architecture limitation.
 
 
 ### Boiling Point Accuracy
@@ -28,6 +33,8 @@ Five models were evaluated: **RF**, **XGBoost**, **chemprop** (D-MPNN), **GNN** 
 | RF       | 8.2        | 10.3        | 6/15            |
 | chemprop | 19.3       | 22.8        | 6/15            |
 | GNN      | 23.9       | 26.5        | 4/15            |
+| XGBoost  | 13.4       | 15.2        | 6/15            |
+| SVR      | 54.5       | 77.7        | 6/15            |
 
 
 ### Data Leakage Audit
@@ -75,12 +82,14 @@ All figures saved to `figures/48_model_selection_validation/`.
 4. `paired_difference_forest.png` - paired metric differences
 5. `tier_summary_heatmap.png` - key metrics across tiers
 
+See also `figures/51_unified_model_comparison/` for the consolidated all-model comparison including XGBoost, SVR, and all other tested models.
+
 ## Provenance
 
 - Feature config hash: `593e5743fe14`
 - Test split hash: `e456ecf90038`
 - Test split n: 2753
-- GNNePCSAFT version: not_installed
+- GNNePCSAFT version: 0.3.1 (PyPI), checkpoint `model-hlrn7lqv` from HuggingFace `wildsonbbl/gnnepcsaft`
 - rf: `/Users/aylitalo/Documents/personal/interviews/process/ml_chem/model/saved`
 - gnn: `/Users/aylitalo/Documents/personal/interviews/process/ml_chem/model/saved`
 - xgboost: `/Users/aylitalo/Documents/personal/interviews/process/ml_chem/model/saved/xgb/xgb_model.joblib`

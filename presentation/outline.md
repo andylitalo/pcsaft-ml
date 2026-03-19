@@ -126,14 +126,19 @@ That became the key model-selection result:
 | Model               | Training data      | epsilon/k R^2 | Fluorinated BP MAE (K) |
 | ------------------- | ------------------ | ------------- | ---------------------- |
 | GC-PC-SAFT (no ML)  | hand-crafted rules | -0.04         | --                     |
+| SVR (RBF kernel)    | 1,801 experimental | 0.33          | 54.5                   |
 | RF (RDKit + Morgan) | 1,801 experimental | 0.33          | **8.2**                |
-| GNN (Esper-only)    | 1,801 experimental | 0.41          | 142.3                  |
+| XGBoost             | 1,801 experimental | 0.33          | 13.4                   |
+| chemprop (D-MPNN)   | 1,801 experimental | 0.39          | 19.3                   |
+| GNN (GINEConv)      | 1,801 experimental | 0.41          | 23.9                   |
+| GNNePCSAFT †        | 1,801 experimental | 0.84 †        | --                     |
 | GNN (unified)       | 13,764 pooled      | 0.73          | 133.7                  |
 
+† GNNePCSAFT is a published, open-source GNN ([wildsonbbl/gnnepcsaft](https://huggingface.co/wildsonbbl/gnnepcsaft)) trained on the same Esper dataset to predict ePC-SAFT parameters. Its Esper R^2 = 0.84 is inflated by train-set overlap (the Esper data is one of its training sources). On the fluorinated external validation — a genuine out-of-distribution test for both models — GNNePCSAFT achieves epsilon/k MAE = 16.6 K, comparable to our RF (14.3 K) and GNN (17.4 K). BP MAE not computed (would require piping ePC-SAFT parameters through the EOS solver). Both RF and GNNePCSAFT share the same systematic failure: over-predicting m by 30-60% for small fluorinated molecules, indicating a training-data gap rather than an architecture limitation.
 
-The table focuses on epsilon/k because it is the parameter that dominates the screening question (see "Why Parameter Differences Matter" below). GNN outperforms RF on aggregate test-set R^2, but both GNN variants fail catastrophically on the external fluorinated validation (16x worse than RF).
+The table focuses on epsilon/k because it is the parameter that dominates the screening question (see "Why Parameter Differences Matter" below). SVR, RF, and XGBoost all achieve R^2 = 0.33 on the Esper test set, but this tie does **not** hold on fluorinated external validation: RF wins decisively (8.2 K BP MAE), XGBoost is close (13.4 K), while SVR fails (54.5 K). GNN variants outperform RF on in-distribution R^2 but fail catastrophically on the external fluorinated validation (3-16x worse than RF on BP MAE). GNNePCSAFT, despite being a purpose-built published model for this exact task, achieves comparable accuracy to RF on the deployment domain — the contribution of this project is the validated end-to-end screening pipeline, not a better point-prediction model.
 
-([Full 8-model comparison](supplementary_information/model_comparison.md)) See also: [R^2 heatmap](figures/15_improved_models/r2_heatmap.png) and [external fluorinated validation](figures/38_gnn_fluorinated_validation/boiling_point_parity.png)
+([Full 9-model comparison](supplementary_information/model_comparison.md), [unified comparison figure](figures/51_unified_model_comparison/unified_model_comparison.png)) See also: [R^2 heatmap](figures/15_improved_models/r2_heatmap.png) and [external fluorinated validation](figures/38_gnn_fluorinated_validation/boiling_point_parity.png)
 
 ### The Broader ML Lesson
 

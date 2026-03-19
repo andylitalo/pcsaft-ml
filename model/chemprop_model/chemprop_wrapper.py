@@ -5,6 +5,7 @@ Neural Network (D-MPNN) on molecular graphs.  Registered as ``chemprop``
 in the model registry.
 """
 
+import json
 import logging
 from pathlib import Path
 
@@ -161,11 +162,15 @@ class ChempropPCSAFT:
             )
             callbacks.append(early_stop)
 
+        csv_logger = L.pytorch.loggers.CSVLogger(
+            save_dir=str(SAVED_DIR), name="lightning_logs", version=0,
+        )
+
         trainer = L.Trainer(
             max_epochs=max_epochs,
             accelerator="cpu",
             enable_progress_bar=True,
-            logger=False,
+            logger=csv_logger,
             enable_checkpointing=False,
             callbacks=callbacks,
         )
@@ -177,12 +182,71 @@ class ChempropPCSAFT:
 
         self.model_ = model
         self.trainer_ = trainer
+
+        # Save training history for convergence diagnostics (Step 49)
+        self._save_training_history(
+            csv_logger, len(train_datapoints),
+            len(val_datapoints) if val_loader is not None else 0,
+        )
+
         logger.info(
             "chemprop training complete: %d train molecules, %d epochs max",
             len(train_datapoints),
             max_epochs,
         )
         return self
+
+    def _save_training_history(self, csv_logger, n_train: int, n_val: int):
+        """Parse Lightning CSVLogger output and save as history JSON."""
+        import csv as csv_mod
+
+        log_dir = Path(csv_logger.log_dir)
+        metrics_file = log_dir / "metrics.csv"
+        if not metrics_file.exists():
+            logger.warning("CSVLogger metrics file not found: %s", metrics_file)
+            return
+
+        with open(metrics_file) as f:
+            reader = csv_mod.DictReader(f)
+            rows = list(reader)
+
+        train_losses: list[dict] = []
+        val_losses: list[dict] = []
+        for row in rows:
+            epoch_str = row.get("epoch", "")
+            if not epoch_str:
+                continue
+            epoch = int(epoch_str)
+            train_val = row.get("train_loss_epoch") or row.get("train_loss") or ""
+            if train_val != "":
+                train_losses.append({"epoch": epoch, "loss": float(train_val)})
+            val_val = row.get("val_loss") or ""
+            if val_val != "":
+                val_losses.append({"epoch": epoch, "eval_loss": float(val_val)})
+
+        best_val = None
+        best_epoch = None
+        if val_losses:
+            best_entry = min(val_losses, key=lambda x: x["eval_loss"])
+            best_val = best_entry["eval_loss"]
+            best_epoch = best_entry["epoch"]
+
+        history = {
+            "train_losses": train_losses,
+            "eval_losses": val_losses,
+            "best_epoch": best_epoch,
+            "best_val_loss": best_val,
+            "split_role": {
+                "train": n_train,
+                "val": n_val,
+                "early_stopping_monitor": "val_loss",
+            },
+        }
+
+        SAVED_DIR.mkdir(parents=True, exist_ok=True)
+        history_path = SAVED_DIR / "chemprop_training_history.json"
+        history_path.write_text(json.dumps(history, indent=2) + "\n")
+        logger.info("Saved chemprop training history to %s", history_path)
 
     # ------------------------------------------------------------------
     # Prediction

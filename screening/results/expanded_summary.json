@@ -1,0 +1,14 @@
+{
+  "total_enumerated": 41809,
+  "valid_boiling_points": 26672,
+  "filter_stats": {
+    "boiling_point": 1961,
+    "sa_score": 18661,
+    "total": 1628
+  },
+  "n_filtered": 1628,
+  "n_in_domain": 715,
+  "olefin_candidates": 15571,
+  "saturated_candidates": 26238,
+  "elapsed_seconds": 207.7
+}

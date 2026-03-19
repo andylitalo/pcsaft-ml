@@ -487,3 +487,34 @@ RF learning curve. Budget: 3–4 hours compute. Depends on Step 49 for n_estimat
 **Next action**: Launch Steps 47 and 48 in parallel on separate branches.
 
 ---
+
+## 2026-03-18: Step 53 — Expanded Candidate Screening (Queued)
+
+**Step guide written**: `docs/steps/53_expanded_candidate_screening.md`. state.yaml updated with
+`status: pending`, depends on Steps 20 and 38b (both completed).
+
+**Motivation**: Completeness check for the screening conclusion. Steps 20–42 searched only
+F/Cl-substituted olefins (10,700 candidates) and found no pure HFO drop-in for cyclopentane.
+Step 53 expands the enumeration to all non-associating C2–C6 hydrocarbons with H/F/Cl/Br/I
+substitution — including saturated alkanes, saturated halocarbons (HFCs, HCFCs), and
+brominated/iodinated compounds. This tests whether the olefin scope restriction was hiding
+viable candidates.
+
+**Scope**: ~20 saturated alkane backbones added to the existing 16 olefin backbones. Halogen
+set extended from {H, F, Cl} to {H, F, Cl, Br, I} via position-selection enumeration (avoids
+5^n blowup). Estimated 30,000–80,000 total candidates after MW ≤ 200 Da filtering. Pipeline
+parallelized with `joblib.Parallel` on boiling point computation (primary bottleneck) and
+backbone enumeration.
+
+**Expected outcome**: The expansion rediscovers known commercial blowing agents (HFC-245fa,
+HCFC-141b, n-pentane) and confirms that every thermodynamic near-hit has a non-thermodynamic
+disqualifier (GWP, ODP, flammability, instability, or regulatory status). Br-containing
+compounds may show higher ε/k but are regulatory non-starters (45–60× ODP per atom vs Cl).
+I-containing compounds have weak C–I bonds and sparse Esper coverage (16 molecules, 0.9%).
+
+**AD note**: Esper training set has 67 Br-containing (3.7%) and 16 I-containing (0.9%)
+molecules. Tanimoto AD flagging (threshold 0.4) will identify low-confidence predictions.
+
+**Next action**: Launch agent on branch `step-53-expanded-screening`. All dependencies met.
+
+---

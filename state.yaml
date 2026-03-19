@@ -812,3 +812,10 @@ steps:
       recommendation: reject
       finding: log_transform_no_significant_fluorinated_improvement
     approved: true
+  53_expanded_candidate_screening:
+    status: pending
+    depends_on:
+      - 20_systematic_hfo_hcfo_enumeration
+      - 38b_rf_hfo_screening_rerun
+    artifacts: []
+    approved: false

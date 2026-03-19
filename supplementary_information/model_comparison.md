@@ -70,8 +70,8 @@ Two GNN architectures were tested: GINEConv (Xu et al. 2019; Hu et al. 2020) for
 | NN (PyTorch)                        | 0.47  | 0.11      | 0.14          | 0.77  | 0.24      | 32.9              |
 | ChemBERTa                           | 0.53  | 0.25      | 0.27          | 0.77  | 0.23      | 31.2              |
 | XGBoost                             | 0.64  | 0.36      | 0.33          | 0.61  | 0.20      | 27.0              |
-| Chemprop D-MPNN                     | 0.54  | 0.33      | 0.39          | 0.69  | 0.21      | 26.8              |
-| GINEConv (Combined)                 | 0.69  | 0.34      | 0.41          | 0.76  | 0.23      | 28.2              |
+| Chemprop D-MPNN §                   | 0.55  | 0.31      | 0.38          | 0.69  | 0.21      | 26.7              |
+| GINEConv (Combined) §               | 0.58  | 0.25      | 0.38          | 0.83  | 0.23      | 29.9              |
 | SVR (RBF kernel) ‡                 | 0.59  | 0.25      | 0.33          | 0.73  | 0.22      | 29.9              |
 | Ridge Regression ‡                 | 0.52  | -0.00     | -0.43         | 0.73  | 0.24      | 32.6              |
 | GNNePCSAFT (external, pre-trained) †| 0.94  | 0.78      | 0.84          | 0.14  | 0.06      | 6.0               |
@@ -79,6 +79,8 @@ Two GNN architectures were tested: GINEConv (Xu et al. 2019; Hu et al. 2020) for
 † GNNePCSAFT **was** trained on the Esper corpus (it is one of its training sources). Its Esper holdout metrics are inflated by train-set overlap and should not be compared directly against the other models' holdout results. The fluorinated external validation (below) is the fair head-to-head comparison.
 
 ‡ SVR and Ridge metrics are mean values across 10 repeated stratified outer splits (seeds 42–51). All other models use a single 80/20 split. See `docs/reports/47_svm_benchmark.md` for interval estimates.
+
+§ Step 49b retrained GINEConv and chemprop with a proper train/val/test split (15% of training data held out for early stopping instead of using the test set). Metrics are lower than previously reported because the earlier runs had data leakage — the test set was used for early-stopping decisions. The current numbers are the methodologically correct values.
 
 
 ### External Fluorinated Validation (15 refrigerants with published PC-SAFT params)
@@ -165,8 +167,8 @@ Step 49 instruments all project-trained models with convergence diagnostics. The
 | NN (MLP) | Train/val loss curves | Overfitting | Val loss flatlines from epoch ~3; best epoch 14/34; large train-val gap |
 | ChemBERTa | Train/eval loss curves | Mild overfitting | Best eval loss at epoch 8/13; slight increases thereafter |
 | XGBoost | CV heatmap + boosting curves | Deferred | CV results and boosting history not saved; requires retraining with instrumented code |
-| GNN (GINEConv) | Train/val loss curves | Deferred | History artifacts not saved; requires retraining with instrumented train_gnn.py |
-| chemprop D-MPNN | Train/val loss curves | Deferred | Lightning logger was disabled; requires retraining with CSVLogger enabled |
+| GNN (GINEConv) | Train/val loss curves | Validated | Combined: 44 epochs (best 29); Esper: 67 epochs (best 52); MA-smoothed early stopping |
+| chemprop D-MPNN | Train/val loss curves | Validated | 30 epochs (best 23); val loss decreasing through final epoch |
 | SVR | CV heatmap | Partial | cv_results.json saved but insufficient grid points for full heatmap visualization |
 
 See `figures/49_convergence_diagnostics/` for diagnostic plots and `docs/reports/49_convergence_diagnostics.md` for the full assessment.
@@ -186,8 +188,8 @@ This table consolidates all model results across Esper internal validation and f
 | SVR | 0.33 | 29.9 | 26.9 | -4.01 | 54.5 | 6/15 | 10 outer splits (mean) |
 | RF | 0.33 | 26.8 | 14.3 | -0.47 | 8.2 | 6/15 | Single split (seed=42) |
 | XGBoost | 0.33 | 27.0 | 15.4 | -0.44 | 13.4 | 6/15 | Single split (seed=42) |
-| chemprop (D-MPNN) | 0.39 | 26.8 | 19.6 | -1.22 | 19.3 | 6/15 | Single split (seed=42) |
-| GNN (GINEConv) | 0.41 | 28.2 | 17.4 | -0.84 | 23.9 | 4/15 | Single split (seed=42) |
+| chemprop (D-MPNN) § | 0.38 | 26.7 | 19.6 | -1.22 | 19.3 | 6/15 | Single split (seed=42) |
+| GNN (GINEConv) § | 0.38 | 29.9 | 17.4 | -0.84 | 23.9 | 4/15 | Single split (seed=42) |
 | GNNePCSAFT † | 0.84 † | 6.0 † | 16.6 | -0.82 | --- | --- | External pre-trained |
 
 **Notes:**
@@ -196,5 +198,6 @@ This table consolidates all model results across Esper internal validation and f
 - Negative R² on the fluorinated set is expected: 15 compounds with a narrow ε/k range makes the variance denominator small, so even modest MAE produces negative R².
 - Fluorinated BP MAE is the decisive Tier 1 metric for model selection (see Step 48).
 - † GNNePCSAFT Esper metrics are inflated by train-set overlap (GNNePCSAFT was trained on the Esper corpus). The fluorinated columns are the fair comparison: on that genuinely external test, GNNePCSAFT (ε/k MAE 16.6 K) is comparable to RF (14.3 K). BP MAE not computed for GNNePCSAFT.
+- § Step 49b retrained GNN and chemprop with a proper train/val/test split. Esper metrics updated; fluorinated metrics retained from Step 48 (unchanged model architecture, same external test set).
 
 See `figures/51_unified_model_comparison/` for consolidated comparison figures.

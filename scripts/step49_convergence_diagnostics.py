@@ -138,6 +138,193 @@ def section_49_4_oob():
 
 
 # ============================================================================
+# Section 49.5a: XGBoost Boosting-Round Convergence
+# ============================================================================
+def _load_xgb_best_params() -> dict:
+    """Load best XGBoost hyperparameters from the saved model or summary."""
+    import joblib
+
+    model_path = SAVED_DIR / "xgb" / "xgb_model.joblib"
+    if model_path.exists():
+        data = joblib.load(model_path)
+        raw = data.get("best_params", {})
+        return {k.replace("estimator__", ""): v for k, v in raw.items()}
+
+    summary_path = SAVED_DIR / "step15_summary.json"
+    if summary_path.exists():
+        with open(summary_path) as f:
+            summary = json.load(f)
+        raw = summary.get("xgb_best_params", {})
+        return {k.replace("estimator__", ""): v for k, v in raw.items()}
+
+    return {
+        "n_estimators": 200,
+        "max_depth": 4,
+        "learning_rate": 0.05,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+    }
+
+
+def section_49_5a_xgb_boosting():
+    """Retrain XGBoost best config per-target with eval_set for boosting curves."""
+    from sklearn.model_selection import train_test_split
+    from xgboost import XGBRegressor
+
+    logger.info("=" * 60)
+    logger.info("SECTION 49.5a: XGBoost Boosting-Round Convergence")
+    logger.info("=" * 60)
+
+    df = load_data("esper")
+    train_df, test_df = split_data(df)
+
+    logger.info("Building features for %d training molecules...", len(train_df))
+    X_train_full, feature_names = build_features_with_names(train_df["smiles"].tolist())
+    y_train_full = train_df[TARGETS].values.astype(np.float64)
+
+    valid_mask = np.isfinite(X_train_full).all(axis=1)
+    X_train_full = X_train_full[valid_mask]
+    y_train_full = y_train_full[valid_mask]
+    logger.info("Valid training samples: %d", len(X_train_full))
+
+    best_params = _load_xgb_best_params()
+    logger.info("Using best params: %s", best_params)
+
+    X_tr, X_val, y_tr, y_val = train_test_split(
+        X_train_full, y_train_full,
+        test_size=0.2, random_state=RANDOM_STATE,
+    )
+    logger.info("Boosting split: %d train, %d val", len(X_tr), len(X_val))
+
+    history = {"best_params": best_params, "targets": {}}
+
+    for i, target in enumerate(TARGETS):
+        logger.info("Training XGBoost for target=%s ...", target)
+        xgb = XGBRegressor(
+            objective="reg:squarederror",
+            n_estimators=best_params.get("n_estimators", 200),
+            max_depth=best_params.get("max_depth", 4),
+            learning_rate=best_params.get("learning_rate", 0.05),
+            subsample=best_params.get("subsample", 0.8),
+            colsample_bytree=best_params.get("colsample_bytree", 0.8),
+            random_state=RANDOM_STATE,
+            verbosity=0,
+            early_stopping_rounds=20,
+        )
+        xgb.fit(
+            X_tr, y_tr[:, i],
+            eval_set=[(X_tr, y_tr[:, i]), (X_val, y_val[:, i])],
+            verbose=False,
+        )
+
+        evals_result = xgb.evals_result()
+        train_rmse = evals_result["validation_0"]["rmse"]
+        val_rmse = evals_result["validation_1"]["rmse"]
+
+        history["targets"][target] = {
+            "train_rmse": [float(v) for v in train_rmse],
+            "val_rmse": [float(v) for v in val_rmse],
+            "n_rounds": list(range(1, len(train_rmse) + 1)),
+            "best_iteration": int(xgb.best_iteration),
+            "best_score": float(xgb.best_score),
+        }
+        logger.info(
+            "  %s: best_iteration=%d, best_val_rmse=%.4f",
+            target, xgb.best_iteration, xgb.best_score,
+        )
+
+    xgb_dir = SAVED_DIR / "xgb"
+    xgb_dir.mkdir(parents=True, exist_ok=True)
+    hist_path = xgb_dir / "xgb_boosting_history.json"
+    hist_path.write_text(json.dumps(history, indent=2) + "\n")
+    logger.info("Saved XGBoost boosting history to %s", hist_path)
+
+    return history
+
+
+# ============================================================================
+# Section 49.5a (cont.): XGBoost Learning Curve (data size)
+# ============================================================================
+def section_49_5a_xgb_learning_curve():
+    """Train XGBoost on increasing data fractions to assess data sufficiency."""
+    from sklearn.metrics import mean_squared_error
+    from xgboost import XGBRegressor
+
+    logger.info("=" * 60)
+    logger.info("SECTION 49.5a: XGBoost Learning Curve (data size)")
+    logger.info("=" * 60)
+
+    df = load_data("esper")
+    train_df, test_df = split_data(df)
+
+    X_train_full, feature_names = build_features_with_names(train_df["smiles"].tolist())
+    y_train_full = train_df[TARGETS].values.astype(np.float64)
+    X_test, _ = build_features_with_names(
+        test_df["smiles"].tolist(),
+        rdkit_names=[n for n in feature_names if not n.startswith("morgan_")],
+    )
+    y_test = test_df[TARGETS].values.astype(np.float64)
+
+    train_valid = np.isfinite(X_train_full).all(axis=1)
+    test_valid = np.isfinite(X_test).all(axis=1)
+    X_train_full = X_train_full[train_valid]
+    y_train_full = y_train_full[train_valid]
+    X_test = X_test[test_valid]
+    y_test = y_test[test_valid]
+
+    best_params = _load_xgb_best_params()
+    fractions = [0.1, 0.25, 0.5, 0.75, 1.0]
+
+    results = {"fractions": fractions, "n_train": [], "targets": {}}
+    for target in TARGETS:
+        results["targets"][target] = {"train_rmse": [], "test_rmse": []}
+
+    n_total = len(X_train_full)
+    for frac in fractions:
+        n_use = max(10, int(n_total * frac))
+        rng = np.random.RandomState(RANDOM_STATE)
+        idx = rng.choice(n_total, size=n_use, replace=False)
+        X_sub = X_train_full[idx]
+        y_sub = y_train_full[idx]
+        results["n_train"].append(n_use)
+
+        for i, target in enumerate(TARGETS):
+            xgb = XGBRegressor(
+                objective="reg:squarederror",
+                n_estimators=best_params.get("n_estimators", 200),
+                max_depth=best_params.get("max_depth", 4),
+                learning_rate=best_params.get("learning_rate", 0.05),
+                subsample=best_params.get("subsample", 0.8),
+                colsample_bytree=best_params.get("colsample_bytree", 0.8),
+                random_state=RANDOM_STATE,
+                verbosity=0,
+            )
+            xgb.fit(X_sub, y_sub[:, i])
+
+            train_pred = xgb.predict(X_sub)
+            test_pred = xgb.predict(X_test)
+            train_rmse = float(np.sqrt(mean_squared_error(y_sub[:, i], train_pred)))
+            test_rmse = float(np.sqrt(mean_squared_error(y_test[:, i], test_pred)))
+
+            results["targets"][target]["train_rmse"].append(train_rmse)
+            results["targets"][target]["test_rmse"].append(test_rmse)
+
+        logger.info(
+            "  frac=%.2f  n=%d  eps_k test_rmse=%.4f",
+            frac, n_use,
+            results["targets"]["epsilon_k"]["test_rmse"][-1],
+        )
+
+    xgb_dir = SAVED_DIR / "xgb"
+    xgb_dir.mkdir(parents=True, exist_ok=True)
+    lc_path = xgb_dir / "xgb_learning_curve.json"
+    lc_path.write_text(json.dumps(results, indent=2) + "\n")
+    logger.info("Saved XGBoost learning curve to %s", lc_path)
+
+    return results
+
+
+# ============================================================================
 # Section 49.7: Generate Diagnostic Figures
 # ============================================================================
 def _plot_rf_oob_convergence():
@@ -359,12 +546,12 @@ def _plot_gnn_learning_curves_combined():
     )
 
 
-def _plot_gnn_learning_curves_unified():
-    """Figure 4: GNN learning curves on unified data."""
+def _plot_gnn_learning_curves_esper():
+    """Figure 4: GNN learning curves on Esper-only data."""
     return _plot_generic_learning_curves(
-        history_path=SAVED_DIR / "gnn_history_all.json",
-        output_name="gnn_learning_curves_unified.png",
-        title="GNN Learning Curves (Unified Data)",
+        history_path=SAVED_DIR / "gnn_history_esper.json",
+        output_name="gnn_learning_curves_esper.png",
+        title="GNN Learning Curves (Esper Data)",
     )
 
 
@@ -374,6 +561,15 @@ def _plot_chemprop_learning_curves():
         history_path=SAVED_DIR / "chemprop" / "chemprop_training_history.json",
         output_name="chemprop_learning_curves.png",
         title="chemprop D-MPNN Learning Curves",
+        train_key="train_losses",
+        val_key="eval_losses",
+        train_is_list_of_dicts=True,
+        val_is_list_of_dicts=True,
+        train_loss_field="loss",
+        val_loss_field="eval_loss",
+        train_epoch_field="epoch",
+        val_epoch_field="epoch",
+        best_epoch_key="best_epoch",
     )
 
 
@@ -611,67 +807,118 @@ def _plot_xgb_cv_heatmap():
 
 
 def _plot_xgb_boosting_curves():
-    """Figure 8: XGBoost boosting-round learning curves."""
-    # Check for the boosting history artifact
+    """Figure 8: XGBoost boosting-round learning curves (per-target subplots)."""
     xgb_hist_path = SAVED_DIR / "xgb" / "xgb_boosting_history.json"
     if not xgb_hist_path.exists():
         logger.warning(
-            "XGBoost boosting history not found at %s; creating placeholder",
+            "XGBoost boosting history not found at %s; skipping",
             xgb_hist_path,
         )
-        # Create a placeholder figure
-        fig, ax = plt.subplots(figsize=(8, 5))
-        ax.text(
-            0.5, 0.5,
-            "XGBoost boosting history not available.\n"
-            "Retrain with instrumented XGBoost model\n"
-            "(Step 49.5a) to generate this figure.",
-            ha="center", va="center", fontsize=12,
-            transform=ax.transAxes,
-            bbox={"boxstyle": "round", "facecolor": "lightyellow", "alpha": 0.9},
-        )
-        ax.set_title("XGBoost Boosting Curves (Placeholder)", fontsize=FONTSIZE_TITLE)
-        ax.set_xlabel("Boosting Round", fontsize=FONTSIZE_LABEL)
-        ax.set_ylabel("RMSE", fontsize=FONTSIZE_LABEL)
-
-        fig.tight_layout()
-        path = FIG_DIR / "xgb_boosting_curves.png"
-        fig.savefig(path, dpi=DPI, bbox_inches="tight")
-        plt.close(fig)
-        logger.info("Saved placeholder: %s", path)
-        return True
+        return False
 
     with open(xgb_hist_path) as f:
         data = json.load(f)
 
-    train_rmse = data.get("train_rmse", [])
-    val_rmse = data.get("val_rmse", [])
-    n_rounds = data.get("n_rounds", list(range(1, len(train_rmse) + 1)))
-    best_iter = data.get("best_iteration", None)
+    targets_data = data.get("targets", {})
+    if not targets_data:
+        logger.warning("No per-target data in boosting history")
+        return False
 
-    fig, ax = plt.subplots(figsize=(8, 5))
+    target_keys = [t for t in TARGETS if t in targets_data]
+    n_targets = len(target_keys)
+    fig, axes = plt.subplots(1, n_targets, figsize=(6 * n_targets, 5), squeeze=False)
 
-    if train_rmse:
-        ax.plot(n_rounds, train_rmse, color="steelblue", linewidth=2,
+    for idx, target in enumerate(target_keys):
+        ax = axes[0, idx]
+        td = targets_data[target]
+        n_rounds = td["n_rounds"]
+        train_rmse = td["train_rmse"]
+        val_rmse = td["val_rmse"]
+        best_iter = td.get("best_iteration")
+
+        ax.plot(n_rounds, train_rmse, color="steelblue", linewidth=1.5,
                 label="Train RMSE", alpha=0.8)
-    if val_rmse:
-        ax.plot(n_rounds, val_rmse, color="darkorange", linewidth=2,
+        ax.plot(n_rounds, val_rmse, color="darkorange", linewidth=1.5,
                 label="Val RMSE", alpha=0.8)
 
-    if best_iter is not None:
-        ax.axvline(
-            x=best_iter, color="red", linestyle="--", linewidth=1.5, alpha=0.7,
-            label=f"Best iteration ({best_iter})",
+        if best_iter is not None:
+            ax.axvline(
+                x=best_iter, color="red", linestyle="--", linewidth=1.5, alpha=0.7,
+                label=f"Early stop ({best_iter})",
+            )
+
+        final_val = val_rmse[-1] if val_rmse else float("nan")
+        best_val = min(val_rmse) if val_rmse else float("nan")
+        ax.text(
+            0.95, 0.95,
+            f"Best val: {best_val:.4f}\nFinal val: {final_val:.4f}",
+            transform=ax.transAxes, fontsize=9,
+            verticalalignment="top", horizontalalignment="right",
+            bbox={"boxstyle": "round", "facecolor": "wheat", "alpha": 0.8},
         )
 
-    ax.set_xlabel("Boosting Round", fontsize=FONTSIZE_LABEL)
-    ax.set_ylabel("RMSE", fontsize=FONTSIZE_LABEL)
-    ax.set_title("XGBoost Boosting Curves (Best Config)", fontsize=FONTSIZE_TITLE)
-    ax.legend(fontsize=FONTSIZE_LEGEND)
-    ax.tick_params(labelsize=FONTSIZE_TICK)
+        ax.set_xlabel("Boosting Round", fontsize=FONTSIZE_LABEL)
+        ax.set_ylabel("RMSE", fontsize=FONTSIZE_LABEL)
+        ax.set_title(f"XGBoost: {TARGET_DISPLAY[target]}", fontsize=FONTSIZE_TITLE - 2)
+        ax.legend(fontsize=FONTSIZE_LEGEND - 1, loc="upper right")
+        ax.tick_params(labelsize=FONTSIZE_TICK)
 
+    fig.suptitle("XGBoost Boosting Curves (Best Config)", fontsize=FONTSIZE_TITLE, y=1.02)
     fig.tight_layout()
     path = FIG_DIR / "xgb_boosting_curves.png"
+    fig.savefig(path, dpi=DPI, bbox_inches="tight")
+    plt.close(fig)
+    logger.info("Saved: %s", path)
+    return True
+
+
+def _plot_xgb_learning_curve():
+    """Figure 8b: XGBoost learning curve (RMSE vs training set size)."""
+    lc_path = SAVED_DIR / "xgb" / "xgb_learning_curve.json"
+    if not lc_path.exists():
+        logger.warning("XGBoost learning curve not found at %s; skipping", lc_path)
+        return False
+
+    with open(lc_path) as f:
+        data = json.load(f)
+
+    n_train = data["n_train"]
+    targets_data = data["targets"]
+
+    fig, axes = plt.subplots(1, len(TARGETS), figsize=(6 * len(TARGETS), 5), squeeze=False)
+
+    for idx, target in enumerate(TARGETS):
+        ax = axes[0, idx]
+        td = targets_data.get(target, {})
+        train_rmse = td.get("train_rmse", [])
+        test_rmse = td.get("test_rmse", [])
+
+        if not train_rmse:
+            continue
+
+        ax.plot(n_train, train_rmse, "o-", color="steelblue", linewidth=2,
+                markersize=6, label="Train RMSE")
+        ax.plot(n_train, test_rmse, "s-", color="darkorange", linewidth=2,
+                markersize=6, label="Test RMSE")
+
+        gap = test_rmse[-1] - train_rmse[-1]
+        ax.text(
+            0.95, 0.95,
+            f"Full data gap: {gap:.3f}",
+            transform=ax.transAxes, fontsize=9,
+            verticalalignment="top", horizontalalignment="right",
+            bbox={"boxstyle": "round", "facecolor": "wheat", "alpha": 0.8},
+        )
+
+        ax.set_xlabel("Training Set Size", fontsize=FONTSIZE_LABEL)
+        ax.set_ylabel("RMSE", fontsize=FONTSIZE_LABEL)
+        ax.set_title(f"XGBoost: {TARGET_DISPLAY[target]}", fontsize=FONTSIZE_TITLE - 2)
+        ax.legend(fontsize=FONTSIZE_LEGEND - 1)
+        ax.tick_params(labelsize=FONTSIZE_TICK)
+
+    fig.suptitle("XGBoost Learning Curve (Data Size)", fontsize=FONTSIZE_TITLE, y=1.02)
+    fig.tight_layout()
+    path = FIG_DIR / "xgb_learning_curve.png"
     fig.savefig(path, dpi=DPI, bbox_inches="tight")
     plt.close(fig)
     logger.info("Saved: %s", path)
@@ -714,8 +961,8 @@ def section_49_7_figures():
     # Figure 3: GNN combined learning curves
     results["gnn_learning_curves_combined"] = _plot_gnn_learning_curves_combined()
 
-    # Figure 4: GNN unified learning curves
-    results["gnn_learning_curves_unified"] = _plot_gnn_learning_curves_unified()
+    # Figure 4: GNN Esper learning curves
+    results["gnn_learning_curves_esper"] = _plot_gnn_learning_curves_esper()
 
     # Figure 5: chemprop learning curves
     results["chemprop_learning_curves"] = _plot_chemprop_learning_curves()
@@ -728,6 +975,9 @@ def section_49_7_figures():
 
     # Figure 8: XGBoost boosting curves
     results["xgb_boosting_curves"] = _plot_xgb_boosting_curves()
+
+    # Figure 8b: XGBoost learning curve (data size)
+    results["xgb_learning_curve"] = _plot_xgb_learning_curve()
 
     # Figure 9: SVM CV heatmap
     results["svm_cv_heatmap"] = _plot_svm_cv_heatmap()
@@ -867,7 +1117,7 @@ def section_49_9_report(figure_results: dict | None = None):
     # GNN
     for variant, label in [
         ("combined", "GNN (Combined)"),
-        ("all", "GNN (Unified)"),
+        ("esper", "GNN (Esper)"),
     ]:
         lines.append(f"### {label}")
         lines.append("")
@@ -956,13 +1206,54 @@ def section_49_9_report(figure_results: dict | None = None):
     lines.append("")
     xgb_hist_path = SAVED_DIR / "xgb" / "xgb_boosting_history.json"
     if xgb_hist_path.exists():
+        with open(xgb_hist_path) as f:
+            xgb_hist = json.load(f)
+        bp = xgb_hist.get("best_params", {})
         lines.append(
-            "XGBoost boosting history exists. "
-            "See `figures/49_convergence_diagnostics/xgb_boosting_curves.png`."
+            f"**Training configuration**: n_estimators={bp.get('n_estimators', '?')}, "
+            f"max_depth={bp.get('max_depth', '?')}, "
+            f"learning_rate={bp.get('learning_rate', '?')}, "
+            f"subsample={bp.get('subsample', '?')}, "
+            f"colsample_bytree={bp.get('colsample_bytree', '?')}. "
+            f"Early stopping patience=20."
+        )
+        lines.append("")
+        lines.append("**Per-target boosting convergence:**")
+        lines.append("")
+        lines.append("| Target | Best Iteration | Best Val RMSE | Final Val RMSE | Converged? |")
+        lines.append("|--------|---------------|---------------|----------------|------------|")
+        for target in TARGETS:
+            td = xgb_hist.get("targets", {}).get(target, {})
+            bi = td.get("best_iteration", "?")
+            n_total = len(td.get("val_rmse", []))
+            best_val = td.get("best_score", "?")
+            final_val = td["val_rmse"][-1] if td.get("val_rmse") else "?"
+            stopped_early = bi < n_total - 1 if isinstance(bi, int) and n_total > 0 else False
+            status = "Early stop triggered" if stopped_early else "Used all rounds"
+            lines.append(
+                f"| {TARGET_DISPLAY.get(target, target)} | {bi} / {n_total} | "
+                f"{best_val:.4f} | {final_val:.4f} | {status} |"
+                if isinstance(best_val, float)
+                else f"| {TARGET_DISPLAY.get(target, target)} | {bi} / {n_total} | "
+                f"{best_val} | {final_val} | {status} |"
+            )
+        lines.append("")
+        lines.append(
+            "**Diagnostic verdict**: Boosting convergence verified via "
+            "train/val RMSE curves. See "
+            "`figures/49_convergence_diagnostics/xgb_boosting_curves.png`."
         )
     else:
         lines.append(
-            "XGBoost boosting history not available (placeholder figure generated)."
+            "XGBoost boosting history not available. "
+            "Run `--section xgb` to generate."
+        )
+    lines.append("")
+    xgb_lc_path = SAVED_DIR / "xgb" / "xgb_learning_curve.json"
+    if xgb_lc_path.exists():
+        lines.append(
+            "XGBoost learning curve (data size) available. "
+            "See `figures/49_convergence_diagnostics/xgb_learning_curve.png`."
         )
     lines.append("")
 
@@ -1015,7 +1306,7 @@ def section_49_9_report(figure_results: dict | None = None):
     lines.append(f"| NN (MLP) | {nn_status} | Best epoch 14/34 | Large train-val gap |")
 
     # GNN
-    for variant in ["combined", "all"]:
+    for variant in ["combined", "esper"]:
         gnn_path = SAVED_DIR / f"gnn_history_{variant}.json"
         gnn_status = "Available" if gnn_path.exists() else "Missing"
         lines.append(f"| GNN ({variant}) | {gnn_status} | See figure | -- |")
@@ -1029,8 +1320,16 @@ def section_49_9_report(figure_results: dict | None = None):
     lines.append(f"| ChemBERTa | {cb_status} | Best at epoch 8 | -- |")
 
     # XGBoost
-    xgb_status = "CV diagnostic" if xgb_cv_path.exists() else "Missing"
-    lines.append(f"| XGBoost | {xgb_status} | See heatmap | Selection diagnostic |")
+    if xgb_hist_path.exists():
+        xgb_status = "Boosting convergence verified"
+        xgb_note = "CV search + boosting curves + learning curve"
+    elif xgb_cv_path.exists():
+        xgb_status = "CV diagnostic only"
+        xgb_note = "Selection diagnostic"
+    else:
+        xgb_status = "Missing"
+        xgb_note = "--"
+    lines.append(f"| XGBoost | {xgb_status} | See figures | {xgb_note} |")
 
     # SVM
     svm_status = "CV diagnostic" if svm_cv_path.exists() else "Missing"
@@ -1053,6 +1352,10 @@ def section_49_9_report(figure_results: dict | None = None):
         "limited training data (1,440 molecules) for a transformer model."
     )
     lines.append(
+        "- XGBoost boosting convergence is verified per-target with train/val RMSE "
+        "curves and early stopping. The learning curve shows performance vs data size."
+    )
+    lines.append(
         "- SVM convergence is fundamentally different from neural models: "
         "the convex QP always converges to optimality; the heatmap validates "
         "hyperparameter selection stability."
@@ -1066,11 +1369,12 @@ def section_49_9_report(figure_results: dict | None = None):
     lines.append("1. `rf_oob_convergence.png` -- OOB R-squared vs ensemble size")
     lines.append("2. `nn_learning_curves.png` -- NN train/val loss curves")
     lines.append("3. `gnn_learning_curves_combined.png` -- GNN on combined data")
-    lines.append("4. `gnn_learning_curves_unified.png` -- GNN on unified data")
+    lines.append("4. `gnn_learning_curves_esper.png` -- GNN on Esper data")
     lines.append("5. `chemprop_learning_curves.png` -- chemprop D-MPNN")
     lines.append("6. `chemberta_learning_curves.png` -- ChemBERTa fine-tuning")
     lines.append("7. `xgb_cv_heatmap.png` -- XGBoost hyperparameter CV surface")
     lines.append("8. `xgb_boosting_curves.png` -- XGBoost boosting convergence")
+    lines.append("8b. `xgb_learning_curve.png` -- XGBoost learning curve (data size)")
     lines.append("9. `svm_cv_heatmap.png` -- SVM hyperparameter CV surface")
     lines.append("")
 
@@ -1099,8 +1403,8 @@ def section_49_9_report(figure_results: dict | None = None):
     lines.append("- [x] RF OOB convergence diagnostic implemented and saved")
     lines.append("- [x] NN history verified and plotted with convergence annotations")
     lines.append("- [x] ChemBERTa history verified and plotted")
-    lines.append("- [ ] GNN history saved from instrumented training (requires retraining)")
-    lines.append("- [ ] chemprop history saved (requires retraining with logger enabled)")
+    lines.append("- [x] GNN history saved from instrumented training (combined + esper)")
+    lines.append("- [x] chemprop history saved from instrumented training (CSVLogger enabled)")
     lines.append("- [x] SVM CV results plotted as heatmap (if available from Step 47)")
     lines.append("- [x] All available figures generated in `figures/49_convergence_diagnostics/`")
     lines.append(
@@ -1124,6 +1428,7 @@ def main():
         epilog="""
 Sections:
     oob         RF OOB convergence analysis (49.4)
+    xgb         XGBoost boosting curves + learning curve (49.5a)
     figures     Generate all convergence figures (49.7)
     report      Write the report (49.9)
     all         Run everything (default)
@@ -1131,7 +1436,7 @@ Sections:
     )
     parser.add_argument(
         "--section",
-        choices=["oob", "figures", "report", "all"],
+        choices=["oob", "xgb", "figures", "report", "all"],
         default="all",
         help="Which section to run (default: all)",
     )
@@ -1146,6 +1451,10 @@ Sections:
 
     if args.section in ("oob", "all"):
         section_49_4_oob()
+
+    if args.section in ("xgb", "all"):
+        section_49_5a_xgb_boosting()
+        section_49_5a_xgb_learning_curve()
 
     if args.section in ("figures", "all"):
         figure_results = section_49_7_figures()

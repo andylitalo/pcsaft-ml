@@ -117,24 +117,34 @@ def compute_boiling_point(m, sigma, epsilon_k, T_min=200.0, T_max=500.0):
         return np.nan
 
 
-def batch_boiling_points(candidates_df):
+def batch_boiling_points(candidates_df, n_jobs=1):
     """Compute boiling points for all candidates in a DataFrame.
 
     Args:
         candidates_df: DataFrame with columns m, sigma, epsilon_k
+        n_jobs: Number of parallel workers. Use -1 for all cores.
+            Default 1 (sequential).
 
     Returns:
         DataFrame: Original df with added column boiling_point_K
     """
-    boiling_points = []
     total = len(candidates_df)
 
-    for idx, row in candidates_df.iterrows():
-        if idx % 100 == 0:
-            print(f"Computing boiling points: {idx}/{total}...")
+    if n_jobs != 1:
+        from joblib import Parallel, delayed
 
-        T_b = compute_boiling_point(row["m"], row["sigma"], row["epsilon_k"])
-        boiling_points.append(T_b)
+        rows = [row for _, row in candidates_df.iterrows()]
+        boiling_points = Parallel(n_jobs=n_jobs, verbose=10)(
+            delayed(compute_boiling_point)(row["m"], row["sigma"], row["epsilon_k"])
+            for row in rows
+        )
+    else:
+        boiling_points = []
+        for idx, (_, row) in enumerate(candidates_df.iterrows()):
+            if idx % 100 == 0:
+                print(f"Computing boiling points: {idx}/{total}...")
+            T_b = compute_boiling_point(row["m"], row["sigma"], row["epsilon_k"])
+            boiling_points.append(T_b)
 
     df = candidates_df.copy()
     df["boiling_point_K"] = boiling_points
@@ -369,3 +379,61 @@ def validate_boiling_points_rf():
         })
 
     return pd.DataFrame(results)
+
+
+def apply_cyclopentane_filters(df):
+    """Apply broad screening filters for cyclopentane-centric ranking.
+
+    Unlike apply_hfo_filters(), this does NOT require:
+    - C=C double bond
+    - No chlorine
+    - Minimum fluorine count
+    - Fluorine mass fraction threshold
+    - Reactive fluorination site check
+
+    Only applies:
+    1. Boiling point in range [288, 323] K
+    2. SA score <= 4.5
+
+    Args:
+        df: DataFrame with columns: smiles, boiling_point_K, sa_score (optional)
+
+    Returns:
+        tuple: (filtered_df, filter_stats_dict)
+    """
+    initial_count = len(df)
+    stats = {}
+
+    mask_bp = (df["boiling_point_K"] >= 288) & (df["boiling_point_K"] <= 323)
+    stats["boiling_point"] = int(mask_bp.sum())
+
+    if "sa_score" in df.columns:
+        mask_sa = df["sa_score"] <= 4.5
+    else:
+        def compute_sa(smiles):
+            mol = Chem.MolFromSmiles(smiles)
+            if mol is None:
+                return 10.0
+            try:
+                return sascorer.calculateScore(mol)
+            except Exception:
+                return 10.0
+
+        sa_scores = df["smiles"].apply(compute_sa)
+        df = df.copy()
+        df["sa_score"] = sa_scores
+        mask_sa = sa_scores <= 4.5
+    stats["sa_score"] = int(mask_sa.sum())
+
+    final_mask = mask_bp & mask_sa
+    stats["total"] = int(final_mask.sum())
+
+    filtered = df[final_mask].copy()
+
+    print("\nCyclopentane-centric Filter Results:")
+    print(f"  Initial candidates: {initial_count}")
+    print(f"  Boiling point [288-323K]: {stats['boiling_point']}")
+    print(f"  SA score <= 4.5: {stats['sa_score']}")
+    print(f"  Final passing all filters: {stats['total']}")
+
+    return filtered, stats

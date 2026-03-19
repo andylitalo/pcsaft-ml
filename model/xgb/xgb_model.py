@@ -4,6 +4,7 @@ Uses MultiOutputRegressor wrapping XGBRegressor with GridSearchCV for
 hyperparameter tuning.  Registered as ``xgboost`` in the model registry.
 """
 
+import json
 import logging
 from pathlib import Path
 
@@ -86,7 +87,29 @@ class XGBoostPCSAFT:
         self.best_params_ = cv.best_params_
         self.feature_names_ = feature_names
         logger.info("Best XGBoost params: %s", self.best_params_)
+
+        self._save_cv_results(cv)
         return self
+
+    def _save_cv_results(self, cv: GridSearchCV) -> None:
+        """Persist GridSearchCV results for downstream diagnostics."""
+        cv_results = {
+            k: v.tolist() if hasattr(v, "tolist") else v
+            for k, v in cv.cv_results_.items()
+            if not k.startswith("param_")
+        }
+        cv_results["params"] = [
+            {k: str(v) for k, v in p.items()} for p in cv.cv_results_["params"]
+        ]
+        cv_results["best_params"] = {
+            k: str(v) for k, v in cv.best_params_.items()
+        }
+        cv_results["best_score"] = float(cv.best_score_)
+
+        SAVED_DIR.mkdir(parents=True, exist_ok=True)
+        cv_path = SAVED_DIR / "cv_results.json"
+        cv_path.write_text(json.dumps(cv_results, indent=2) + "\n")
+        logger.info("XGBoost CV results saved to %s", cv_path)
 
     # ------------------------------------------------------------------
     # Prediction

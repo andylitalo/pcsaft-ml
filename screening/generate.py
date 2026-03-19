@@ -166,28 +166,70 @@ ALKENE_BACKBONES: list[str] = [
     "C=C1CCC1",         # methylenecyclobutane
 ]
 
+ALKANE_BACKBONES: list[str] = [
+    # Acyclic — C2
+    "CC",               # ethane
+    # Acyclic — C3
+    "CCC",              # propane
+    # Cyclic — C3
+    "C1CC1",            # cyclopropane
+    # Acyclic — C4
+    "CCCC",             # butane
+    "CC(C)C",           # isobutane
+    # Cyclic — C4
+    "C1CCC1",           # cyclobutane
+    "CC1CC1",           # methylcyclopropane
+    # Acyclic — C5
+    "CCCCC",            # pentane
+    "CC(C)CC",          # isopentane
+    "CC(C)(C)C",        # neopentane
+    # Cyclic — C5
+    "C1CCCC1",          # cyclopentane
+    "CC1CCC1",          # methylcyclobutane
+    # Acyclic — C6
+    "CCCCCC",           # hexane
+    "CC(C)CCC",         # 2-methylpentane
+    "CCC(C)CC",         # 3-methylpentane
+    "CC(C)(C)CC",       # 2,2-dimethylbutane
+    "CC(C)C(C)C",       # 2,3-dimethylbutane
+    # Cyclic — C6
+    "C1CCCCC1",         # cyclohexane
+    "CC1CCCC1",         # methylcyclopentane
+]
+
+ALL_BACKBONES: list[str] = ALKENE_BACKBONES + ALKANE_BACKBONES
+
 
 def _enumerate_halogen_patterns(
     backbone_smi: str,
     *,
     max_cl: int = 1,
+    max_br: int = 0,
+    max_i: int = 0,
     max_mw: float = 200.0,
+    include_parent: bool = False,
 ) -> set[str]:
-    """Exhaustively enumerate F/Cl substitution patterns on a backbone.
+    """Exhaustively enumerate halogen substitution patterns on a backbone.
 
-    For each H bonded to a carbon atom, independently assign H (keep),
-    F, or Cl, subject to the constraint that at most *max_cl* Cl atoms
-    appear and at least one F is present (to exclude plain hydrocarbons).
+    For each H bonded to a carbon atom, assign H, F, Cl, Br, or I.
+    Heavy halogens (Cl, Br, I) are enumerated by position-selection
+    (combinations) to avoid 5^n blowup. Remaining sites get H or F
+    (binary product, 2^k).
 
     Parameters
     ----------
     backbone_smi : str
-        SMILES of the unsubstituted alkene backbone.
+        SMILES of the backbone (alkene or alkane).
     max_cl : int
-        Maximum number of Cl atoms per molecule (default 1 for HCFOs).
+        Maximum number of Cl atoms per molecule.
+    max_br : int
+        Maximum number of Br atoms per molecule.
+    max_i : int
+        Maximum number of I atoms per molecule.
     max_mw : float
-        Reject molecules with MW above this threshold. Blowing agents
-        need to be volatile; 200 Da covers all commercial HFOs/HCFOs.
+        Reject molecules with MW above this threshold.
+    include_parent : bool
+        If True, include the unsubstituted parent hydrocarbon.
 
     Returns
     -------
@@ -213,33 +255,76 @@ def _enumerate_halogen_patterns(
     if n == 0:
         return set()
 
+    # Added MW per substitution (halogen - H ≈ halogen atomic weight - 1)
+    CL_MW, BR_MW, I_MW = 34.45, 78.9, 125.9
+    backbone_mw = Descriptors.ExactMolWt(Chem.MolFromSmiles(backbone_smi))
+
     results: set[str] = set()
 
     for n_cl in range(min(max_cl, n) + 1):
-        for cl_sites in combinations(range(n), n_cl):
-            cl_set = set(cl_sites)
-            remaining = [i for i in range(n) if i not in cl_set]
+        for n_br in range(min(max_br, n - n_cl) + 1):
+            for n_i in range(min(max_i, n - n_cl - n_br) + 1):
+                # Early MW pruning (all remaining sites as F = lightest)
+                min_added = n_cl * CL_MW + n_br * BR_MW + n_i * I_MW
+                if backbone_mw + min_added > max_mw:
+                    continue
 
-            for f_pattern in product((1, 9), repeat=len(remaining)):
-                if n_cl == 0 and 9 not in f_pattern:
-                    continue  # skip parent hydrocarbon (no halogens)
+                for cl_sites in combinations(range(n), n_cl):
+                    cl_set = set(cl_sites)
+                    remaining_after_cl = [i for i in range(n) if i not in cl_set]
 
-                ed = Chem.RWMol(Chem.Mol(mol))
+                    for br_sites in combinations(remaining_after_cl, n_br):
+                        br_set = set(br_sites)
+                        remaining_after_br = [
+                            i for i in remaining_after_cl if i not in br_set
+                        ]
 
-                for si in cl_sites:
-                    ed.GetAtomWithIdx(h_on_c_indices[si]).SetAtomicNum(17)
-                for si, z in zip(remaining, f_pattern):
-                    if z == 9:
-                        ed.GetAtomWithIdx(h_on_c_indices[si]).SetAtomicNum(9)
+                        for i_sites in combinations(remaining_after_br, n_i):
+                            i_set = set(i_sites)
+                            remaining = [
+                                i for i in remaining_after_br if i not in i_set
+                            ]
 
-                try:
-                    Chem.SanitizeMol(ed)
-                    if Descriptors.ExactMolWt(ed) > max_mw:
-                        continue
-                    ed_clean = Chem.RemoveHs(ed)
-                    results.add(Chem.MolToSmiles(ed_clean))
-                except Exception:
-                    pass
+                            for f_pattern in product(
+                                (1, 9), repeat=len(remaining)
+                            ):
+                                n_heavy = n_cl + n_br + n_i
+                                n_f = sum(1 for z in f_pattern if z == 9)
+                                if (
+                                    not include_parent
+                                    and n_heavy == 0
+                                    and n_f == 0
+                                ):
+                                    continue
+
+                                ed = Chem.RWMol(Chem.Mol(mol))
+
+                                for si in cl_sites:
+                                    ed.GetAtomWithIdx(
+                                        h_on_c_indices[si]
+                                    ).SetAtomicNum(17)
+                                for si in br_sites:
+                                    ed.GetAtomWithIdx(
+                                        h_on_c_indices[si]
+                                    ).SetAtomicNum(35)
+                                for si in i_sites:
+                                    ed.GetAtomWithIdx(
+                                        h_on_c_indices[si]
+                                    ).SetAtomicNum(53)
+                                for si, z in zip(remaining, f_pattern):
+                                    if z == 9:
+                                        ed.GetAtomWithIdx(
+                                            h_on_c_indices[si]
+                                        ).SetAtomicNum(9)
+
+                                try:
+                                    Chem.SanitizeMol(ed)
+                                    if Descriptors.ExactMolWt(ed) > max_mw:
+                                        continue
+                                    ed_clean = Chem.RemoveHs(ed)
+                                    results.add(Chem.MolToSmiles(ed_clean))
+                                except Exception:
+                                    pass
 
     return results
 
@@ -248,21 +333,34 @@ def generate_systematic_candidates(
     backbones: list[str] | None = None,
     *,
     max_cl: int = 1,
+    max_br: int = 0,
+    max_i: int = 0,
     max_mw: float = 200.0,
+    include_parent: bool = False,
+    n_jobs: int = 1,
 ) -> list[tuple[str, Chem.Mol]]:
-    """Systematically enumerate HFO/HCFO candidates from alkene backbones.
+    """Systematically enumerate halogenated candidates from backbones.
 
-    For each backbone, exhaustively places F (and optionally Cl) at every
-    C-H site, then enumerates E/Z and R/S stereoisomers.
+    For each backbone, exhaustively places H/F/Cl/Br/I at every C-H site,
+    then enumerates E/Z and R/S stereoisomers.
 
     Parameters
     ----------
     backbones : list[str] | None
-        Alkene backbone SMILES. Defaults to ALKENE_BACKBONES.
+        Backbone SMILES. Defaults to ALKENE_BACKBONES.
     max_cl : int
         Maximum Cl atoms per molecule (0 = HFO-only, 1 = include HCFOs).
+    max_br : int
+        Maximum Br atoms per molecule.
+    max_i : int
+        Maximum I atoms per molecule.
     max_mw : float
         Molecular weight ceiling in Da.
+    include_parent : bool
+        If True, include unsubstituted parent hydrocarbons.
+    n_jobs : int
+        Number of parallel workers for backbone enumeration.
+        Use -1 for all cores. Default 1 (sequential).
 
     Returns
     -------
@@ -272,13 +370,30 @@ def generate_systematic_candidates(
     if backbones is None:
         backbones = ALKENE_BACKBONES
 
+    enum_kwargs = dict(
+        max_cl=max_cl,
+        max_br=max_br,
+        max_i=max_i,
+        max_mw=max_mw,
+        include_parent=include_parent,
+    )
+
     all_smiles: set[str] = set()
-    for bb in backbones:
-        patterns = _enumerate_halogen_patterns(
-            bb, max_cl=max_cl, max_mw=max_mw,
+
+    if n_jobs != 1:
+        from joblib import Parallel, delayed
+
+        all_pattern_sets = Parallel(n_jobs=n_jobs)(
+            delayed(_enumerate_halogen_patterns)(bb, **enum_kwargs)
+            for bb in backbones
         )
-        logger.info("Backbone %s → %d unique patterns", bb, len(patterns))
-        all_smiles.update(patterns)
+        for patterns in all_pattern_sets:
+            all_smiles.update(patterns)
+    else:
+        for bb in backbones:
+            patterns = _enumerate_halogen_patterns(bb, **enum_kwargs)
+            logger.info("Backbone %s → %d unique patterns", bb, len(patterns))
+            all_smiles.update(patterns)
 
     logger.info(
         "Combinatorial enumeration: %d unique SMILES from %d backbones",
@@ -303,7 +418,8 @@ def generate_systematic_candidates(
     )
     print(
         f"Systematic enumeration: {len(candidates)} unique candidates "
-        f"from {len(backbones)} backbones (max_cl={max_cl}, max_mw={max_mw})"
+        f"from {len(backbones)} backbones "
+        f"(max_cl={max_cl}, max_br={max_br}, max_i={max_i}, max_mw={max_mw})"
     )
     return candidates
 
