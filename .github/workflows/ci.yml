@@ -57,6 +57,7 @@ jobs:
       - name: Run core tests (exclude slow, skip optional-dep tests)
         run: >
           uv run pytest tests/ -v -m "not slow" --tb=short
+          --ignore=tests/test_chemberta.py
           --ignore=tests/test_chemberta_ad.py
           --ignore=tests/test_henrys_constant.py
           --ignore=tests/test_hfo_screening.py

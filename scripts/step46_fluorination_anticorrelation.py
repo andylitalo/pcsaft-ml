@@ -332,7 +332,10 @@ def triage_hits(df: pd.DataFrame) -> str:
         lines.append("No molecules found in this region.")
         return "\n".join(lines)
 
-    lines.append(f"{'ε/k':>7} {'F mass%':>8} {'ASHRAE':>7} {'MW':>7} {'Class':<25} {'SMILES':<40} Relevance")
+    lines.append(
+        f"{'ε/k':>7} {'F mass%':>8} {'ASHRAE':>7} {'MW':>7} "
+        f"{'Class':<25} {'SMILES':<40} Relevance"
+    )
     lines.append("-" * 130)
     for _, row in hits.iterrows():
         lines.append(
@@ -349,13 +352,18 @@ def quadrant_counts(df: pd.DataFrame) -> str:
     a2l_plus = df["f_mass_frac"] >= A2L_THRESHOLD
     a1_plus = df["f_mass_frac"] >= A1_THRESHOLD
 
+    flam_hi = (high_ek & ~a2l_plus).sum()
+    a2l_hi = (high_ek & a2l_plus).sum()
+    a1_hi = (high_ek & a1_plus).sum()
+    a2l_lo = (~high_ek & a2l_plus).sum()
+    flam_lo = (~high_ek & ~a2l_plus).sum()
     lines = [
         "\n=== QUADRANT COUNTS ===\n",
-        f"  ε/k ≥ 269 K, F mass frac < {A2L_THRESHOLD} (flammable side, high ε/k):   {(high_ek & ~a2l_plus).sum()}",
-        f"  ε/k ≥ 269 K, F mass frac ≥ {A2L_THRESHOLD} (A2L+, high ε/k):            {(high_ek & a2l_plus).sum()}",
-        f"  ε/k ≥ 269 K, F mass frac ≥ {A1_THRESHOLD} (A1, high ε/k):              {(high_ek & a1_plus).sum()}",
-        f"  ε/k < 269 K, F mass frac ≥ {A2L_THRESHOLD} (A2L+, low ε/k):             {(~high_ek & a2l_plus).sum()}",
-        f"  ε/k < 269 K, F mass frac < {A2L_THRESHOLD} (flammable side, low ε/k):    {(~high_ek & ~a2l_plus).sum()}",
+        f"  ε/k ≥ 269 K, F < {A2L_THRESHOLD} (flammable, high ε/k): {flam_hi}",
+        f"  ε/k ≥ 269 K, F ≥ {A2L_THRESHOLD} (A2L+, high ε/k):     {a2l_hi}",
+        f"  ε/k ≥ 269 K, F ≥ {A1_THRESHOLD} (A1, high ε/k):       {a1_hi}",
+        f"  ε/k < 269 K, F ≥ {A2L_THRESHOLD} (A2L+, low ε/k):      {a2l_lo}",
+        f"  ε/k < 269 K, F < {A2L_THRESHOLD} (flammable, low ε/k):  {flam_lo}",
     ]
     return "\n".join(lines)
 
@@ -394,11 +402,11 @@ def main():
         print(f"  {cls:<30} n={len(grp):>4}  mean ε/k={grp['epsilon_k'].mean():>6.1f}")
 
     # Fluorination gradient
-    print(f"\n=== FLUORINATION GRADIENT ===\n")
+    print("\n=== FLUORINATION GRADIENT ===\n")
     print(fluorination_gradient_table(df))
 
     # Class-pair comparison
-    print(f"\n=== CLASS-PAIR COMPARISON ===\n")
+    print("\n=== CLASS-PAIR COMPARISON ===\n")
     print(class_pair_table(df))
 
     # Quadrant counts
@@ -409,7 +417,7 @@ def main():
 
     # Bottom-line: candidate-like subset
     candidate_like = df[(df["mw"] >= 50) & (df["mw"] <= 200)]
-    print(f"\n=== CANDIDATE-LIKE SUBSET (MW 50–200 Da, carbon-containing) ===")
+    print("\n=== CANDIDATE-LIKE SUBSET (MW 50–200 Da, carbon-containing) ===")
     print(f"Total: {len(candidate_like)}")
     high_ek_cl = candidate_like[candidate_like["epsilon_k"] >= 270]
     print(f"With ε/k ≥ 270 K: {len(high_ek_cl)}")
@@ -418,7 +426,7 @@ def main():
     print(f"  of which A2L+ (F mass frac ≥ {A2L_THRESHOLD}): {len(a2l_cl)}")
     print(f"  of which A1   (F mass frac ≥ {A1_THRESHOLD}): {len(a1_cl)}")
     if len(a2l_cl) > 0:
-        print(f"\n  These molecules:")
+        print("\n  These molecules:")
         for _, row in a2l_cl.sort_values("epsilon_k", ascending=False).iterrows():
             print(f"    ε/k={row['epsilon_k']:.1f}  F_mass={row['f_mass_frac']:.2f}  "
                   f"MW={row['mw']:.1f}  {row['ashrae']}  {row['mol_class']}  {row['smiles']}")

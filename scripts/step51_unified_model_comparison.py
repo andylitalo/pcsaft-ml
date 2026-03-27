@@ -675,8 +675,16 @@ def _update_step48_report(all_fluor: dict) -> None:
         if xgb_epsk_mae is not None and np.isfinite(xgb_epsk_mae):
             xgb_m_mae = xgb.get("m_mae")
             xgb_sigma_mae = xgb.get("sigma_mae")
-            xgb_m_str = f"{xgb_m_mae:.3f}" if xgb_m_mae is not None and np.isfinite(xgb_m_mae) else "---"
-            xgb_s_str = f"{xgb_sigma_mae:.3f}" if xgb_sigma_mae is not None and np.isfinite(xgb_sigma_mae) else "---"
+            xgb_m_str = (
+                f"{xgb_m_mae:.3f}"
+                if xgb_m_mae is not None and np.isfinite(xgb_m_mae)
+                else "---"
+            )
+            xgb_s_str = (
+                f"{xgb_sigma_mae:.3f}"
+                if xgb_sigma_mae is not None and np.isfinite(xgb_sigma_mae)
+                else "---"
+            )
             new_rows = old_param_table_end
             new_rows += (
                 f"\n| XGBoost  | {xgb_m_str} | {xgb_s_str}     "
@@ -686,8 +694,17 @@ def _update_step48_report(all_fluor: dict) -> None:
             if svm_epsk_mae is not None and np.isfinite(svm_epsk_mae):
                 svm_m_mae = svm.get("m_mae")
                 svm_sigma_mae = svm.get("sigma_mae")
-                svm_m_str = f"{svm_m_mae:.3f}" if svm_m_mae is not None and np.isfinite(svm_m_mae) else "---"
-                svm_s_str = f"{svm_sigma_mae:.3f}" if svm_sigma_mae is not None and np.isfinite(svm_sigma_mae) else "---"
+                svm_m_str = (
+                    f"{svm_m_mae:.3f}"
+                    if svm_m_mae is not None and np.isfinite(svm_m_mae)
+                    else "---"
+                )
+                svm_s_str = (
+                    f"{svm_sigma_mae:.3f}"
+                    if svm_sigma_mae is not None
+                    and np.isfinite(svm_sigma_mae)
+                    else "---"
+                )
                 new_rows += (
                     f"\n| SVR      | {svm_m_str} | {svm_s_str}     "
                     f"| {svm_epsk_mae:.1f}              "

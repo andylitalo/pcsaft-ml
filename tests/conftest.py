@@ -38,7 +38,10 @@ def _no_network_in_tests(monkeypatch):
     """
     if os.environ.get("ALLOW_NETWORK_TESTS"):
         return
-    import requests
+    try:
+        import requests
+    except ModuleNotFoundError:
+        return
 
     def _blocked(*args, **kwargs):
         raise RuntimeError(

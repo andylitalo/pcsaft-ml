@@ -1,8 +1,15 @@
 """Tests for the pcsaft_predict standalone package."""
 
+from pathlib import Path
+
 import pandas as pd
+import pytest
 
 import pcsaft_predict
+
+_MODEL_DIR = Path(__file__).resolve().parent.parent / "model" / "saved"
+_has_models = (_MODEL_DIR / "rf_m.joblib").exists()
+pytestmark = pytest.mark.skipif(not _has_models, reason="RF model files not available")
 
 
 def test_predict_single_smiles():
