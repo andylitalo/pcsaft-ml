@@ -10,11 +10,10 @@ readme = "README.md"
 authors = [
     {name = "ML Chem Project", email = "noreply@example.com"}
 ]
-license = {text = "MIT"}
+license = "MIT"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -45,6 +44,9 @@ Repository = "https://github.com/example/pcsaft-predict"
 
 [tool.setuptools]
 packages = ["pcsaft_predict"]
+
+[tool.setuptools.package-dir]
+pcsaft_predict = "."
 
 [tool.setuptools.package-data]
 pcsaft_predict = ["py.typed", "data/.gitkeep"]
