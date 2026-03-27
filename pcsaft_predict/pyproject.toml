@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "pcsaft-predict"
 version = "1.0.0"
 description = "Predict PC-SAFT equation-of-state parameters from SMILES"
-readme = "../README.md"
+readme = "README.md"
 authors = [
     {name = "ML Chem Project", email = "noreply@example.com"}
 ]
